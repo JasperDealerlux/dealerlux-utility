@@ -10,7 +10,7 @@
 
 namespace DealerluxUtils\Registries;
 
-use DealerluxUtils\Traits\Singleton as DealerluxUtils_Singleton;
+use DealerluxUtils\Traits\Singleton as Singleton_Trait;
 
 if ( ! defined( 'WPINC' ) ) {
 	die;
@@ -30,7 +30,7 @@ class Posts_Registry {
 	 * This prevents the class from being instantiated more than once
 	 * during a single WordPress request.
 	 */
-	use DealerluxUtils_Singleton;
+	use Singleton_Trait;
 
 	/**
 	 * Loaded posts configuration.

@@ -6,7 +6,7 @@
 
 namespace DealerluxUtils;
 
-use DealerluxUtils\Traits\Singleton as DealerluxUtils_Singleton;
+use DealerluxUtils\Traits\Singleton as Singleton_Trait;
 
 if ( ! defined( 'WPINC' ) ) {
 	die;
@@ -23,7 +23,7 @@ class Dump_Client_Forms_Shortcode {
 	 * This prevents the class from being instantiated more than once
 	 * during a single WordPress request.
 	 */
-	use DealerluxUtils_Singleton;
+	use Singleton_Trait;
 
 	/**
 	 * Constructor.

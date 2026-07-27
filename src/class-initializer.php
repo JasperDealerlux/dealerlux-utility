@@ -7,8 +7,9 @@
 
 namespace DealerluxUtils;
 
-use DealerluxUtils\Traits\Singleton as DealerluxUtils_Singleton;
+use DealerluxUtils\Traits\Singleton as Singleton_Trait;
 
+use DealerluxUtils\Modules\Client_Switcher\Client_Switcher;
 use DealerluxUtils\Registries\Options_Registry;
 use DealerluxUtils\Registries\Posts_Registry;
 use DealerluxUtils\Shortcodes\Dump_Client_Forms_Shortcode;
@@ -28,7 +29,7 @@ class Initializer {
 	 * This prevents the class from being instantiated more than once
 	 * during a single WordPress request.
 	 */
-	use DealerluxUtils_Singleton;
+	use Singleton_Trait;
 
 	/**
 	 * Constructor.
@@ -43,7 +44,7 @@ class Initializer {
 	protected static function can_register() {
 		return true;
 	}
-        
+
 	/**
 	 * Register WordPress hooks.
 	 *
@@ -57,45 +58,57 @@ class Initializer {
 	}
 
 	/**
-	 * Initialize the classes from method classification class initializer.
+	 * Initialize Dealerlux Utility classes by classification.
 	 *
 	 * @return void
 	 */
 	public function initialize_classes() {
 		$this->initialize_registries();
+		$this->initialize_modules();
 		$this->initialize_pages();
 		$this->initialize_shortcodes();
 	}
 
-    /**
-     * Initialize the registry classes.
-     *
-     * @return void
-     */
-    private function initialize_registries() {
-        Options_Registry::register();
-        Posts_Registry::register();
+	/**
+	 * Initialize registry classes.
+	 *
+	 * Options Registry must be initialized before modules that read or write
+	 * registered options.
+	 *
+	 * @return void
+	 */
+	private function initialize_registries() {
+		Options_Registry::register();
+		Posts_Registry::register();
+	}
 
-		$pages = Posts_Registry::instance()->get_posts( 'page' );
+	/**
+	 * Initialize feature modules.
+	 *
+	 * Client Switcher runs during muplugins_loaded so the managed normal
+	 * plugins can be synchronized before WordPress loads active plugins.
+	 *
+	 * @return void
+	 */
+	private function initialize_modules() {
+		Client_Switcher::register();
+	}
 
-		dl_dump_js($pages);
-    }
+	/**
+	 * Initialize classes related to pages.
+	 *
+	 * @return void
+	 */
+	private function initialize_pages() {
+		// Page-related classes are registered here.
+	}
 
-    /**
-     * Initialize the classes related to pages.
-     *
-     * @return void
-     */
-    private function initialize_pages() {
-        // Page_Title_Handler::register();
-    }
-
-    /**
-     * Initialize the classes related to shortcodes.
-     *
-     * @return void
-     */
-    private function initialize_shortcodes() {
-        Dump_Client_Forms_Shortcode::register();
-    }
+	/**
+	 * Initialize classes related to shortcodes.
+	 *
+	 * @return void
+	 */
+	private function initialize_shortcodes() {
+		Dump_Client_Forms_Shortcode::register();
+	}
 }

@@ -3,13 +3,14 @@
  * Class Dump_Client_Forms_Shortcode
  *
  * Generates CTA or accordion Gutenberg blocks from the selected
- * SSS client plugin forms.php.
+ * SSS Client plugin forms.php.
  */
 
 namespace DealerluxUtils\Shortcodes;
 
 use DealerluxUtils\Registries\Options_Registry;
-use DealerluxUtils\Traits\Singleton as DealerluxUtils_Singleton;
+use DealerluxUtils\Traits\Singleton as Singleton_Trait;
+use DealerluxUtils\Traits\Url_Parameter as Url_Parameter_Trait;
 
 if ( ! defined( 'WPINC' ) ) {
 	die;
@@ -42,6 +43,22 @@ class Dump_Client_Forms_Shortcode {
 	private $default_style = 'cta';
 
 	/**
+	 * Options Registry selector.
+	 *
+	 * This resolves:
+	 *
+	 * plugins.collection.dealerlux-utility.options
+	 *     .client_switcher_selected_plugin
+	 *
+	 * @var array
+	 */
+	private $option_selector = array(
+		'type'   => 'plugin',
+		'source' => 'dealerlux-utility',
+		'name'   => 'client_switcher_selected_plugin',
+	);
+
+	/**
 	 * Supported shortcode display styles.
 	 *
 	 * @var array
@@ -52,9 +69,26 @@ class Dump_Client_Forms_Shortcode {
 	);
 
 	/**
+	 * URL query parameters used by this class.
+	 *
+	 * Centralizes parameter names to avoid duplicated string literals
+	 * and make future changes easier to maintain.
+	 *
+	 * @var array<string, string>
+	 */
+	private const URL_PARAMETERS = array(
+		'SET_FORM' => 'set_form',
+	);
+
+	/**
 	 * Use the singleton loader.
 	 */
-	use DealerluxUtils_Singleton;
+	use Singleton_Trait;
+
+	/**
+	 * Use reusable URL query parameter utilities.
+	 */
+	use Url_Parameter_Trait;
 
 	/**
 	 * Constructor.
@@ -164,28 +198,24 @@ class Dump_Client_Forms_Shortcode {
 			return array();
 		}
 
-		$sss_client_plugin_data = Options_Registry::instance()
+		$client_plugin_data = Options_Registry::instance()
 			->get_value(
-				array(
-					'type'   => 'plugin',
-					'source' => 'spa-software-solutions',
-					'name'   => 'selected_client_plugin',
-				),
+				$this->option_selector,
 				array()
 			);
 
 		if (
-			! is_array( $sss_client_plugin_data ) ||
-			empty( $sss_client_plugin_data['plugin_directory'] ) ||
+			! is_array( $client_plugin_data ) ||
+			empty( $client_plugin_data['plugin_directory'] ) ||
 			! is_string(
-				$sss_client_plugin_data['plugin_directory']
+				$client_plugin_data['plugin_directory']
 			)
 		) {
 			return array();
 		}
 
 		$plugin_directory = trim(
-			$sss_client_plugin_data['plugin_directory']
+			$client_plugin_data['plugin_directory']
 		);
 
 		if ( '' === $plugin_directory ) {
@@ -333,6 +363,13 @@ class Dump_Client_Forms_Shortcode {
 	 * @return string
 	 */
 	private function build_form_icon_block( $form_key ) {
+		$can_display_form = $this->can_display_form( $form_key );
+		
+		// Stop processing when the form cannot be displayed.
+		if ( ! $can_display_form ) {
+			return '';
+		}
+
 		$form_title = $this->format_form_title(
 			$form_key
 		);
@@ -342,7 +379,7 @@ class Dump_Client_Forms_Shortcode {
 		}
 
 		$icon_attributes = array(
-			'title'    => $form_title,
+			'title'    => "$form_title - [$form_key]",
 			'form'     => $form_key,
 			'icon'     => 'fa-solid fa-file-lines',
 			'metadata' => array(
@@ -360,7 +397,7 @@ class Dump_Client_Forms_Shortcode {
 
 		return sprintf(
 			'<!-- wp:spa-software-solutions/cta-icon %s /-->',
-			$icon_json
+			$icon_json,
 		);
 	}
 
@@ -371,6 +408,13 @@ class Dump_Client_Forms_Shortcode {
 	 * @return string
 	 */
 	private function build_form_accordion_item( $form_key ) {
+		$can_display_form = $this->can_display_form( $form_key );
+		
+		// Stop processing when the form cannot be displayed.
+		if ( ! $can_display_form ) {
+			return '';
+		}
+
 		$form_title = $this->format_form_title(
 			$form_key
 		);
@@ -395,8 +439,14 @@ class Dump_Client_Forms_Shortcode {
 			$form_title
 		);
 
+		$accordion_attributes = array(
+			'openByDefault' => $can_display_form,
+		);
+
+		$accordion_json = wp_json_encode( $accordion_attributes );
+
 		return sprintf(
-			"<!-- wp:accordion-item -->\n"
+			"<!-- wp:accordion-item %4\$s -->\n"
 			. "<div class=\"wp-block-accordion-item\">\n"
 			. "<!-- wp:accordion-heading -->\n"
 			. "<h3 class=\"wp-block-accordion-heading\">"
@@ -408,13 +458,16 @@ class Dump_Client_Forms_Shortcode {
 			. "<!-- /wp:accordion-heading -->\n\n"
 			. "<!-- wp:accordion-panel -->\n"
 			. "<div role=\"region\" class=\"wp-block-accordion-panel\">\n"
-			. "<!-- wp:spa-software-solutions/lead-form %2\$s /-->\n"
+			. "<h4>%2\$s</h4>\n"
+			. "<!-- wp:spa-software-solutions/lead-form %3\$s /-->\n"
 			. "</div>\n"
 			. "<!-- /wp:accordion-panel -->\n"
 			. "</div>\n"
 			. '<!-- /wp:accordion-item -->',
 			$escaped_title,
-			$lead_form_json
+			$this->get_form_link( $form_key, "View: $escaped_title Form" ),
+			$lead_form_json,
+			$accordion_json
 		);
 	}
 
@@ -501,6 +554,60 @@ class Dump_Client_Forms_Shortcode {
 		return ucwords(
 			strtolower(
 				trim( $title )
+			)
+		);
+	}
+
+	/**
+	 * Get the requested form key from the URL.
+	 *
+	 * @return string
+	 */
+	private function get_requested_form_key() {;
+		return $this->get_url_parameter( 'SET_FORM' );
+	}
+
+	/**
+	 * Determine whether a form can be displayed.
+	 *
+	 * When the set_form URL parameter is present, only the form whose key matches
+	 * the requested form key can be displayed. When the parameter is absent, all
+	 * forms can be displayed.
+	 *
+	 * @param string $form_key Form key to evaluate.
+	 *
+	 * @return bool True when the form can be displayed; otherwise, false.
+	 */
+	private function can_display_form( $form_key ) {
+		$requested_form_key = $this->get_requested_form_key();
+
+		if (
+			! empty( $requested_form_key ) &&
+			$requested_form_key !== $form_key
+		) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Build a form link for the current page.
+	 *
+	 * Adds or replaces the set_form query parameter using the provided form key
+	 * and returns an escaped HTML anchor element.
+	 *
+	 * @param string $key   Form key to use as the set_form parameter value.
+	 * @param string $label Link label.
+	 *
+	 * @return string Escaped HTML anchor element, or an empty string on failure.
+	 */
+	private function get_form_link( $key, $label ) {
+		return $this->build_parameter_link(
+			array(
+				'key'         => 'SET_FORM',
+				'value'       => $key,
+				'label'       => $label,
 			)
 		);
 	}

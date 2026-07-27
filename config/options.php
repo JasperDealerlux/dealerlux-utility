@@ -107,6 +107,23 @@ return array(
 						'default'     => array(),
 						'description' => 'General settings used by the Dealerlux Utility MU plugin.',
 					),
+					
+					'client_switcher_selected_plugin' => array(
+						'name'        => 'dealerlux_utility_client_switcher_selected_plugin',
+						'label'       => 'Client Switcher Selected Plugin',
+						'type'        => 'array',
+						'default'     => array(
+							'plugin_slug'          => '',
+							'plugin_file'          => '',
+							'plugin_absolute_path' => '',
+							'plugin_directory'     => '',
+							'domain'               => '',
+							'client_id'            => 0,
+							'dealer_group_id'      => 0,
+							'selected_at'          => '',
+						),
+						'description' => 'Stores the SSS client plugin selected by the Dealerlux Utility Client Switcher, including its plugin paths and associated client environment identifiers.',
+					),
 
 					'posts_registry_cache' => array(
 						'name'        => 'dealerlux_utility_posts_registry_cache',

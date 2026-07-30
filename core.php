@@ -80,7 +80,7 @@ final class Bootstrap {
 	}
 
 	/**
-	 * Autoloads Dealerlux Utility classes and traits.
+	 * Autoload Dealerlux Utility classes, interfaces, and traits.
 	 *
 	 * Examples:
 	 *
@@ -93,37 +93,43 @@ final class Bootstrap {
 	 * DealerluxUtils\Traits\Singleton
 	 * => src/traits/trait-singleton.php
 	 *
-	 * @param string $class_name Fully qualified class or trait name.
+	 * @param string $fully_qualified_name Fully qualified symbol name.
 	 * @return void
 	 */
-	public function autoload( string $class_name ): void {
+	public function autoload(
+		string $fully_qualified_name
+	): void {
 		if (
 			0 !== strpos(
-				$class_name,
+				$fully_qualified_name,
 				self::NAMESPACE_PREFIX
 			)
 		) {
 			return;
 		}
 
-		$relative_class = substr(
-			$class_name,
+		$relative_name = substr(
+			$fully_qualified_name,
 			strlen( self::NAMESPACE_PREFIX )
 		);
 
-		if ( '' === $relative_class ) {
+		if ( '' === $relative_name ) {
 			return;
 		}
 
 		$namespace_parts = explode(
 			'\\',
-			$relative_class
+			$relative_name
 		);
 
-		$class_name = array_pop( $namespace_parts );
+		$symbol_name = array_pop(
+			$namespace_parts
+		);
 
-		$is_trait = isset( $namespace_parts[0] )
-			&& 'Traits' === $namespace_parts[0];
+		$is_trait = (
+			isset( $namespace_parts[0] ) &&
+			'Traits' === $namespace_parts[0]
+		);
 
 		$directories = array_map(
 			'strtolower',
@@ -131,50 +137,97 @@ final class Bootstrap {
 		);
 
 		$file_name = strtolower(
-			str_replace( '_', '-', $class_name )
+			str_replace(
+				'_',
+				'-',
+				$symbol_name
+			)
 		);
 
 		$file_prefix = $is_trait
 			? 'trait-'
 			: 'class-';
 
-		$file_path = $this->plugin_directory . 'src/';
+		$file_path = $this->plugin_directory
+			. 'src/';
 
 		if ( ! empty( $directories ) ) {
-			$file_path .= implode( '/', $directories ) . '/';
+			$file_path .= implode(
+				'/',
+				$directories
+			) . '/';
 		}
 
-		$file_path .= $file_prefix . $file_name . '.php';
+		$file_path .= $file_prefix
+			. $file_name
+			. '.php';
 
-		$file_path = wp_normalize_path( $file_path );
-		
+		$file_path = wp_normalize_path(
+			$file_path
+		);
 
-		if ( is_file( $file_path ) ) {
-			require_once $file_path;
-
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				if ( ! class_exists( $class_name, false ) && ! trait_exists( $class_name, false ) ) {
-					error_log(
-						sprintf(
-							'Dealerlux autoload: File loaded, but "%s" was not declared.',
-							$class_name
-						)
-					);
-				}
+		if ( ! is_file( $file_path ) ) {
+			if (
+				defined( 'WP_DEBUG' ) &&
+				WP_DEBUG
+			) {
+				error_log(
+					sprintf(
+						'Dealerlux Utility autoload failure: Symbol "%1$s" expected at "%2$s".',
+						$fully_qualified_name,
+						$file_path
+					)
+				);
 			}
 
 			return;
 		}
 
-		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+		require_once $file_path;
+
+		if (
+			defined( 'WP_DEBUG' ) &&
+			WP_DEBUG &&
+			! $this->symbol_exists(
+				$fully_qualified_name
+			)
+		) {
 			error_log(
 				sprintf(
-					'Dealerlux Utility autoload failure: Class "%1$s" expected at "%2$s".',
-					$relative_class,
-					$file_path
+					'Dealerlux Utility autoload: File "%1$s" was loaded, but symbol "%2$s" was not declared.',
+					$file_path,
+					$fully_qualified_name
 				)
 			);
 		}
+	}
+
+	/**
+	 * Determine whether an autoloaded PHP symbol exists.
+	 *
+	 * Autoload is disabled during these checks to prevent the verification
+	 * process from recursively invoking the autoloader.
+	 *
+	 * @param string $fully_qualified_name Fully qualified symbol name.
+	 * @return bool
+	 */
+	private function symbol_exists(
+		string $fully_qualified_name
+	): bool {
+		return (
+			class_exists(
+				$fully_qualified_name,
+				false
+			) ||
+			interface_exists(
+				$fully_qualified_name,
+				false
+			) ||
+			trait_exists(
+				$fully_qualified_name,
+				false
+			)
+		);
 	}
 
 	/**

@@ -2,8 +2,7 @@
 /**
  * Class Environment_Resolver
  *
- * Resolves the client website selected by the Client Switcher environment
- * configuration.
+ * Resolves the website selected by SSS_CLIENT_ENVIRONMENT.
  *
  * @package DealerluxUtils
  */
@@ -17,8 +16,7 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 /**
- * Resolve one configured client website by domain, client ID, or dealer group
- * ID.
+ * Resolve the selected client website.
  */
 class Environment_Resolver {
 
@@ -44,10 +42,7 @@ class Environment_Resolver {
 	private function __construct() {}
 
 	/**
-	 * Determine whether this class should be registered.
-	 *
-	 * This class is accessed as a dependency and does not independently
-	 * register WordPress hooks.
+	 * Determine whether the class may be registered.
 	 *
 	 * @return bool
 	 */
@@ -56,9 +51,7 @@ class Environment_Resolver {
 	}
 
 	/**
-	 * Register WordPress hooks.
-	 *
-	 * This dependency does not register hooks.
+	 * This dependency registers no independent hooks.
 	 *
 	 * @return void
 	 */
@@ -67,10 +60,12 @@ class Environment_Resolver {
 	/**
 	 * Resolve the selected website.
 	 *
-	 * @param array $configuration Client Switcher configuration.
+	 * @param array $configuration Client environment configuration.
 	 * @return array|null
 	 */
-	public function resolve( array $configuration ) {
+	public function resolve(
+		array $configuration
+	) {
 		$environment = (
 			isset( $configuration['env'] ) &&
 			is_array( $configuration['env'] )
@@ -80,20 +75,33 @@ class Environment_Resolver {
 
 		$selector = isset( $environment['use'] )
 			? strtolower(
-				trim( (string) $environment['use'] )
+				trim(
+					(string) $environment['use']
+				)
 			)
 			: 'client_id';
 
 		$value = isset( $environment['set'] )
-			? trim( (string) $environment['set'] )
+			? trim(
+				(string) $environment['set']
+			)
 			: '';
 
-		if ( ! in_array( $selector, $this->allowed_selectors, true ) ) {
+		if (
+			! in_array(
+				$selector,
+				$this->allowed_selectors,
+				true
+			)
+		) {
 			$this->log(
 				sprintf(
 					'Invalid environment selector "%1$s". Allowed selectors: %2$s.',
 					$selector,
-					implode( ', ', $this->allowed_selectors )
+					implode(
+						', ',
+						$this->allowed_selectors
+					)
 				)
 			);
 
@@ -114,14 +122,6 @@ class Environment_Resolver {
 		)
 			? $configuration['websites']
 			: array();
-
-		if ( empty( $websites ) ) {
-			$this->log(
-				'The websites configuration is empty.'
-			);
-
-			return null;
-		}
 
 		foreach ( $websites as $domain => $website ) {
 			if ( ! is_array( $website ) ) {
@@ -146,7 +146,10 @@ class Environment_Resolver {
 				continue;
 			}
 
-			if ( (string) $website[ $selector ] !== $value ) {
+			if (
+				(string) $website[ $selector ] !==
+				(string) $value
+			) {
 				continue;
 			}
 
@@ -168,14 +171,18 @@ class Environment_Resolver {
 	}
 
 	/**
-	 * Normalize a configured domain or shortened domain key.
+	 * Normalize a configured domain or environment key.
 	 *
 	 * @param mixed $domain Domain value.
 	 * @return string
 	 */
-	private function normalize_domain( $domain ) {
+	private function normalize_domain(
+		$domain
+	) {
 		$domain = strtolower(
-			trim( (string) $domain )
+			trim(
+				(string) $domain
+			)
 		);
 
 		$domain = preg_replace(
@@ -209,9 +216,9 @@ class Environment_Resolver {
 	}
 
 	/**
-	 * Add the configured domain key to a website record.
+	 * Prepare the selected website.
 	 *
-	 * @param string $domain  Configured domain key.
+	 * @param string $domain  Configured website key.
 	 * @param array  $website Website configuration.
 	 * @return array
 	 */
@@ -227,12 +234,14 @@ class Environment_Resolver {
 	}
 
 	/**
-	 * Write a Client Switcher message to the PHP error log.
+	 * Write a Client Switcher message to the error log.
 	 *
-	 * @param string $message Log message.
+	 * @param string $message Message.
 	 * @return void
 	 */
-	private function log( $message ) {
+	private function log(
+		$message
+	) {
 		error_log(
 			sprintf(
 				'[Dealerlux Utility Client Switcher] %s',

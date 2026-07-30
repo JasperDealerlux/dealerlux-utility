@@ -2,8 +2,8 @@
 /**
  * Class Plugin_Switcher
  *
- * Activates the assigned SSS client plugin and deactivates the other managed
- * SSS client plugins.
+ * Deactivates other managed SSS client plugins and activates the plugin
+ * assigned to the selected client environment.
  *
  * @package DealerluxUtils
  */
@@ -17,21 +17,14 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 /**
- * Synchronize managed SSS client plugins.
+ * Synchronize managed client plugins.
  */
 class Plugin_Switcher {
 
 	/**
-	 * Use the singleton loader.
+	 * Use the Dealerlux Utility singleton loader.
 	 */
 	use Singleton_Trait;
-
-	/**
-	 * Whether managed plugins should be activated network-wide.
-	 *
-	 * @var bool
-	 */
-	private $network_wide = false;
 
 	/**
 	 * Constructor.
@@ -39,7 +32,7 @@ class Plugin_Switcher {
 	private function __construct() {}
 
 	/**
-	 * Determine whether this class should be registered.
+	 * Determine whether the class may be registered.
 	 *
 	 * @return bool
 	 */
@@ -48,9 +41,7 @@ class Plugin_Switcher {
 	}
 
 	/**
-	 * Register WordPress hooks.
-	 *
-	 * This dependency does not register hooks.
+	 * This dependency registers no independent hooks.
 	 *
 	 * @return void
 	 */
@@ -59,8 +50,11 @@ class Plugin_Switcher {
 	/**
 	 * Synchronize managed plugins with the selected website.
 	 *
+	 * Only plugins supplied through $managed_slugs are controlled.
+	 * Unrelated WordPress plugins are never changed.
+	 *
 	 * @param array $website       Selected website configuration.
-	 * @param array $managed_slugs Managed plugin directory slugs.
+	 * @param array $managed_slugs Managed client plugin directory slugs.
 	 * @return array
 	 */
 	public function switch_to(
@@ -69,14 +63,9 @@ class Plugin_Switcher {
 	) {
 		$this->load_plugin_api();
 
-		$target_slug = isset( $website['plugin'] )
-			? trim(
-				sanitize_text_field(
-					(string) $website['plugin']
-				),
-				'/'
-			)
-			: '';
+		$target_slug = $this->get_target_slug(
+			$website
+		);
 
 		if ( '' === $target_slug ) {
 			return $this->failure(
@@ -90,6 +79,12 @@ class Plugin_Switcher {
 		}
 
 		$installed_plugins = get_plugins();
+
+		if ( ! is_array( $installed_plugins ) ) {
+			return $this->failure(
+				'The installed plugin registry could not be loaded.'
+			);
+		}
 
 		$target_file = $this->find_plugin_file(
 			$target_slug,
@@ -109,34 +104,99 @@ class Plugin_Switcher {
 			$managed_slugs
 		);
 
-		if ( ! in_array( $target_slug, $managed_slugs, true ) ) {
+		if (
+			! in_array(
+				$target_slug,
+				$managed_slugs,
+				true
+			)
+		) {
 			$managed_slugs[] = $target_slug;
 		}
 
-		$active_alternatives = $this->find_active_alternatives(
-			$target_file,
+		$managed_files = $this->resolve_managed_plugin_files(
 			$managed_slugs,
 			$installed_plugins
 		);
 
-		$target_was_active = is_plugin_active(
-			$target_file
+		if (
+			! in_array(
+				$target_file,
+				$managed_files,
+				true
+			)
+		) {
+			$managed_files[] = $target_file;
+		}
+
+		$active_managed_files = $this->get_active_managed_plugin_files(
+			$managed_files
 		);
 
+		$target_was_active = in_array(
+			$target_file,
+			$active_managed_files,
+			true
+		);
+
+		$active_alternatives = array_values(
+			array_diff(
+				$active_managed_files,
+				array( $target_file )
+			)
+		);
+
+		/*
+		 * Deactivate every other managed client plugin before activation.
+		 *
+		 * The selected target is not unnecessarily deactivated when it is
+		 * already active.
+		 */
 		if ( ! empty( $active_alternatives ) ) {
+			do_action(
+				'dealerlux_utility_client_switcher_before_deactivate',
+				$active_alternatives,
+				$target_file,
+				$website
+			);
+
 			deactivate_plugins(
 				$active_alternatives,
 				true,
-				$this->network_wide
+				false
+			);
+		}
+
+		$still_active_alternatives =
+			$this->get_active_managed_plugin_files(
+				$active_alternatives
+			);
+
+		if ( ! empty( $still_active_alternatives ) ) {
+			return $this->failure(
+				sprintf(
+					'The following managed plugins could not be deactivated: %s.',
+					implode(
+						', ',
+						$still_active_alternatives
+					)
+				)
 			);
 		}
 
 		if ( ! $target_was_active ) {
+			do_action(
+				'dealerlux_utility_client_switcher_before_activate',
+				$target_file,
+				$target_slug,
+				$website
+			);
+
 			$activation_result = activate_plugin(
 				$target_file,
 				'',
 				false,
-				$this->network_wide
+				false
 			);
 
 			if ( is_wp_error( $activation_result ) ) {
@@ -168,24 +228,134 @@ class Plugin_Switcher {
 			);
 		}
 
+		$final_active_managed_files =
+			$this->get_active_managed_plugin_files(
+				$managed_files
+			);
+
+		$unexpected_active_plugins = array_values(
+			array_diff(
+				$final_active_managed_files,
+				array( $target_file )
+			)
+		);
+
+		if ( ! empty( $unexpected_active_plugins ) ) {
+			return $this->failure(
+				sprintf(
+					'Unexpected managed client plugins remain active: %s.',
+					implode(
+						', ',
+						$unexpected_active_plugins
+					)
+				)
+			);
+		}
+
+		$changed = (
+			! $target_was_active ||
+			! empty( $active_alternatives )
+		);
+
+		do_action(
+			'dealerlux_utility_client_switcher_plugin_synchronized',
+			$target_file,
+			$target_slug,
+			$active_alternatives,
+			$website
+		);
+
 		return array(
 			'success'             => true,
-			'changed'             => (
-				! $target_was_active ||
-				! empty( $active_alternatives )
-			),
+			'changed'             => $changed,
 			'target_slug'         => $target_slug,
 			'target_file'         => $target_file,
 			'deactivated_plugins' => $active_alternatives,
+			'active_plugins'      => $final_active_managed_files,
 			'error'               => null,
 		);
 	}
 
 	/**
-	 * Find an installed plugin's main file by directory slug.
+	 * Get the assigned plugin directory slug.
+	 *
+	 * @param array $website Selected website.
+	 * @return string
+	 */
+	private function get_target_slug(
+		array $website
+	) {
+		if (
+			! isset( $website['plugin'] ) ||
+			! is_scalar( $website['plugin'] )
+		) {
+			return '';
+		}
+
+		return trim(
+			sanitize_text_field(
+				(string) $website['plugin']
+			),
+			'/'
+		);
+	}
+
+	/**
+	 * Resolve installed files for managed plugin slugs.
+	 *
+	 * @param array $managed_slugs     Managed directory slugs.
+	 * @param array $installed_plugins Installed plugin definitions.
+	 * @return array
+	 */
+	private function resolve_managed_plugin_files(
+		array $managed_slugs,
+		array $installed_plugins
+	) {
+		$managed_files = array();
+
+		foreach ( $managed_slugs as $plugin_slug ) {
+			$plugin_file = $this->find_plugin_file(
+				$plugin_slug,
+				$installed_plugins
+			);
+
+			if ( null !== $plugin_file ) {
+				$managed_files[] = $plugin_file;
+			}
+		}
+
+		return array_values(
+			array_unique( $managed_files )
+		);
+	}
+
+	/**
+	 * Get currently active managed plugin files.
+	 *
+	 * @param array $managed_files Managed plugin files.
+	 * @return array
+	 */
+	private function get_active_managed_plugin_files(
+		array $managed_files
+	) {
+		$active_files = array();
+
+		foreach ( $managed_files as $plugin_file ) {
+			if ( is_plugin_active( $plugin_file ) ) {
+				$active_files[] = $plugin_file;
+			}
+		}
+
+		return array_values(
+			array_unique( $active_files )
+		);
+	}
+
+	/**
+	 * Find the main plugin file using its directory slug.
 	 *
 	 * @param string $plugin_slug       Plugin directory slug.
-	 * @param array  $installed_plugins Installed plugin definitions.
+	 * @param array  $installed_plugins Installed plugins.
 	 * @return string|null
 	 */
 	private function find_plugin_file(
@@ -203,7 +373,10 @@ class Plugin_Switcher {
 
 		$prefix = $plugin_slug . '/';
 
-		foreach ( array_keys( $installed_plugins ) as $plugin_file ) {
+		foreach (
+			array_keys( $installed_plugins )
+			as $plugin_file
+		) {
 			$plugin_file = ltrim(
 				wp_normalize_path(
 					(string) $plugin_file
@@ -211,7 +384,12 @@ class Plugin_Switcher {
 				'/'
 			);
 
-			if ( 0 === strpos( $plugin_file, $prefix ) ) {
+			if (
+				0 === strpos(
+					$plugin_file,
+					$prefix
+				)
+			) {
 				return $plugin_file;
 			}
 		}
@@ -220,46 +398,9 @@ class Plugin_Switcher {
 	}
 
 	/**
-	 * Find active managed plugins other than the target.
+	 * Normalize managed plugin directory slugs.
 	 *
-	 * @param string $target_file       Target plugin file.
-	 * @param array  $managed_slugs     Managed plugin slugs.
-	 * @param array  $installed_plugins Installed plugins.
-	 * @return array
-	 */
-	private function find_active_alternatives(
-		$target_file,
-		array $managed_slugs,
-		array $installed_plugins
-	) {
-		$active_plugins = array();
-
-		foreach ( $managed_slugs as $plugin_slug ) {
-			$plugin_file = $this->find_plugin_file(
-				$plugin_slug,
-				$installed_plugins
-			);
-
-			if (
-				null === $plugin_file ||
-				$target_file === $plugin_file ||
-				! is_plugin_active( $plugin_file )
-			) {
-				continue;
-			}
-
-			$active_plugins[] = $plugin_file;
-		}
-
-		return array_values(
-			array_unique( $active_plugins )
-		);
-	}
-
-	/**
-	 * Normalize managed plugin slugs.
-	 *
-	 * @param array $plugin_slugs Plugin slugs.
+	 * @param array $plugin_slugs Plugin directory slugs.
 	 * @return array
 	 */
 	private function normalize_plugin_slugs(
@@ -279,11 +420,9 @@ class Plugin_Switcher {
 				'/'
 			);
 
-			if ( '' === $plugin_slug ) {
-				continue;
+			if ( '' !== $plugin_slug ) {
+				$normalized[] = $plugin_slug;
 			}
-
-			$normalized[] = $plugin_slug;
 		}
 
 		return array_values(
@@ -292,12 +431,14 @@ class Plugin_Switcher {
 	}
 
 	/**
-	 * Restore plugins deactivated before a failed target activation.
+	 * Restore plugins following a failed target activation.
 	 *
-	 * @param array $plugin_files Plugin files to restore.
+	 * @param array $plugin_files Plugin files.
 	 * @return void
 	 */
-	private function restore_plugins( array $plugin_files ) {
+	private function restore_plugins(
+		array $plugin_files
+	) {
 		foreach ( $plugin_files as $plugin_file ) {
 			if ( is_plugin_active( $plugin_file ) ) {
 				continue;
@@ -307,7 +448,7 @@ class Plugin_Switcher {
 				$plugin_file,
 				'',
 				false,
-				$this->network_wide
+				false
 			);
 
 			if ( is_wp_error( $result ) ) {
@@ -337,14 +478,15 @@ class Plugin_Switcher {
 			return;
 		}
 
-		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		require_once ABSPATH
+			. 'wp-admin/includes/plugin.php';
 	}
 
 	/**
-	 * Create a normalized failure result.
+	 * Return a normalized failure result.
 	 *
 	 * @param string         $message Error message.
-	 * @param \WP_Error|null $error   Optional WordPress error.
+	 * @param \WP_Error|null $error   Optional error.
 	 * @return array
 	 */
 	private function failure(
@@ -361,6 +503,7 @@ class Plugin_Switcher {
 			'target_slug'         => '',
 			'target_file'         => '',
 			'deactivated_plugins' => array(),
+			'active_plugins'      => array(),
 			'error'               => $error instanceof \WP_Error
 				? $error
 				: new \WP_Error(
@@ -371,12 +514,14 @@ class Plugin_Switcher {
 	}
 
 	/**
-	 * Write a Client Switcher message to the PHP error log.
+	 * Write a Client Switcher message to the error log.
 	 *
-	 * @param string $message Log message.
+	 * @param string $message Message.
 	 * @return void
 	 */
-	private function log( $message ) {
+	private function log(
+		$message
+	) {
 		error_log(
 			sprintf(
 				'[Dealerlux Utility Client Switcher] %s',

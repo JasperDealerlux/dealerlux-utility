@@ -8,6 +8,7 @@
 namespace DealerluxUtils;
 
 use DealerluxUtils\Traits\Singleton as Singleton_Trait;
+use DealerluxUtils\Traits\Clients_Config_Loader as Clients_Config_Loader_Trait;
 
 use DealerluxUtils\Modules\Client_Switcher\Client_Switcher;
 use DealerluxUtils\Registries\Options_Registry;
@@ -24,12 +25,10 @@ if ( ! defined( 'WPINC' ) ) {
 class Initializer {
 
 	/**
-	 * Use the singleton loader.
-	 *
-	 * This prevents the class from being instantiated more than once
-	 * during a single WordPress request.
+	 * Use shared Dealerlux Utility traits.
 	 */
 	use Singleton_Trait;
+	use Clients_Config_Loader_Trait;
 
 	/**
 	 * Constructor.
@@ -51,10 +50,22 @@ class Initializer {
 	 * @return void
 	 */
 	public function register_hooks() {
+		
+		$this->initialize_early_components();
+
 		add_action(
 			'muplugins_loaded',
-			array( $this, 'initialize_classes' )
+			array( $this, 'initialize_components' )
 		);
+	}
+
+	/**
+	 * Initialize components required before ordinary plugins load.
+	 *
+	 * @return void
+	 */
+	private function initialize_early_components() {
+		$this->load_clients_configuration();
 	}
 
 	/**
@@ -62,7 +73,7 @@ class Initializer {
 	 *
 	 * @return void
 	 */
-	public function initialize_classes() {
+	public function initialize_components() {
 		$this->initialize_registries();
 		$this->initialize_modules();
 		$this->initialize_pages();

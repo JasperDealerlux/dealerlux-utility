@@ -2,23 +2,22 @@
 /**
  * Class Selection_Store
  *
- * Stores and retrieves the Client Switcher selected plugin through the
- * Dealerlux Utility Options Registry.
+ * Persists Client Switcher state through Options_Registry.
  *
  * @package DealerluxUtils
  */
 
 namespace DealerluxUtils\Modules\Client_Switcher;
 
-use DealerluxUtils\Traits\Singleton as Singleton_Trait;
 use DealerluxUtils\Registries\Options_Registry;
+use DealerluxUtils\Traits\Singleton as Singleton_Trait;
 
 if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
 /**
- * Persist the Client Switcher selected plugin.
+ * Persist the selected client plugin.
  */
 class Selection_Store {
 
@@ -29,11 +28,6 @@ class Selection_Store {
 
 	/**
 	 * Options Registry selector.
-	 *
-	 * This resolves:
-	 *
-	 * plugins.collection.dealerlux-utility.options
-	 *     .client_switcher_selected_plugin
 	 *
 	 * @var array
 	 */
@@ -49,7 +43,7 @@ class Selection_Store {
 	private function __construct() {}
 
 	/**
-	 * Determine whether this class should be registered.
+	 * Determine whether the class may be registered.
 	 *
 	 * @return bool
 	 */
@@ -58,20 +52,18 @@ class Selection_Store {
 	}
 
 	/**
-	 * Register WordPress hooks.
-	 *
-	 * This dependency does not register hooks.
+	 * This dependency registers no independent hooks.
 	 *
 	 * @return void
 	 */
 	public function register_hooks() {}
 
 	/**
-	 * Store the selected client plugin.
+	 * Save the selected plugin record.
 	 *
 	 * @param string $plugin_slug Plugin directory slug.
 	 * @param string $plugin_file Plugin file relative to WP_PLUGIN_DIR.
-	 * @param array  $website     Selected website configuration.
+	 * @param array  $website     Selected website.
 	 * @return bool
 	 */
 	public function save(
@@ -80,12 +72,16 @@ class Selection_Store {
 		array $website
 	) {
 		$plugin_slug = trim(
-			sanitize_text_field( (string) $plugin_slug ),
+			sanitize_text_field(
+				(string) $plugin_slug
+			),
 			'/'
 		);
 
 		$plugin_file = ltrim(
-			wp_normalize_path( (string) $plugin_file ),
+			wp_normalize_path(
+				(string) $plugin_file
+			),
 			'/'
 		);
 
@@ -94,14 +90,15 @@ class Selection_Store {
 			'' === $plugin_file
 		) {
 			$this->log(
-				'The plugin slug or plugin file is empty.'
+				'The selected plugin slug or file is empty.'
 			);
 
 			return false;
 		}
 
 		$plugin_absolute_path = wp_normalize_path(
-			trailingslashit( WP_PLUGIN_DIR ) . $plugin_file
+			trailingslashit( WP_PLUGIN_DIR )
+			. $plugin_file
 		);
 
 		$selection = array(
@@ -109,7 +106,9 @@ class Selection_Store {
 			'plugin_file'          => $plugin_file,
 			'plugin_absolute_path' => $plugin_absolute_path,
 			'plugin_directory'     => wp_normalize_path(
-				dirname( $plugin_absolute_path )
+				dirname(
+					$plugin_absolute_path
+				)
 			),
 			'domain'               => isset( $website['domain'] )
 				? sanitize_text_field(
@@ -120,7 +119,9 @@ class Selection_Store {
 				? absint( $website['client_id'] )
 				: 0,
 			'dealer_group_id'      => isset( $website['dealer_group_id'] )
-				? absint( $website['dealer_group_id'] )
+				? absint(
+					$website['dealer_group_id']
+				)
 				: 0,
 			'selected_at'          => current_time(
 				'mysql',
@@ -136,7 +137,7 @@ class Selection_Store {
 			)
 		) {
 			$this->log(
-				'The Client Switcher selected-plugin option is not registered in config/options.php.'
+				'The Client Switcher option is not registered in config/options.php.'
 			);
 
 			return false;
@@ -146,7 +147,7 @@ class Selection_Store {
 			$this->option_selector,
 			array()
 		);
-        
+
 		if (
 			is_array( $current_selection ) &&
 			$this->represents_same_selection(
@@ -177,7 +178,7 @@ class Selection_Store {
 	}
 
 	/**
-	 * Get the stored selection.
+	 * Get the stored plugin selection.
 	 *
 	 * @return array
 	 */
@@ -193,7 +194,7 @@ class Selection_Store {
 	}
 
 	/**
-	 * Delete the stored selection.
+	 * Delete the stored plugin selection.
 	 *
 	 * @return bool
 	 */
@@ -204,13 +205,13 @@ class Selection_Store {
 	}
 
 	/**
-	 * Determine whether the persisted selection already matches.
+	 * Determine whether two records represent the same selection.
 	 *
-	 * selected_at is intentionally excluded so the option is not rewritten on
-	 * every request.
+	 * selected_at is intentionally excluded so an unchanged environment does
+	 * not create a database write on every request.
 	 *
-	 * @param array $current   Current selection.
-	 * @param array $selection New selection.
+	 * @param array $current   Existing record.
+	 * @param array $selection New record.
 	 * @return bool
 	 */
 	private function represents_same_selection(
@@ -232,7 +233,10 @@ class Selection_Store {
 				? (string) $current[ $key ]
 				: '';
 
-			$selection_value = array_key_exists( $key, $selection )
+			$selection_value = array_key_exists(
+				$key,
+				$selection
+			)
 				? (string) $selection[ $key ]
 				: '';
 
@@ -245,12 +249,14 @@ class Selection_Store {
 	}
 
 	/**
-	 * Write a Client Switcher message to the PHP error log.
+	 * Write a Client Switcher message to the error log.
 	 *
-	 * @param string $message Log message.
+	 * @param string $message Message.
 	 * @return void
 	 */
-	private function log( $message ) {
+	private function log(
+		$message
+	) {
 		error_log(
 			sprintf(
 				'[Dealerlux Utility Client Switcher] %s',

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Dealerlux Utility Functions
  * Description: Reusable debugging, request, array, hook, enqueue, and plugin utility functions for Dealerlux.
- * Version: 0.0.1
+ * Version: 0.0.2
  * Author: Jasper Benedicto Jardin
  * Requires PHP: 7.4
  */

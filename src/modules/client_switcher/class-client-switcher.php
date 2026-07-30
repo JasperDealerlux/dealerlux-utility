@@ -2,8 +2,8 @@
 /**
  * Class Client_Switcher
  *
- * Coordinates client environment resolution, SSS API constant definition,
- * client plugin activation, and selected-plugin persistence.
+ * Coordinates client environment resolution, configuration validation,
+ * managed plugin synchronization, SSS API constants, and persistence.
  *
  * @package DealerluxUtils
  */
@@ -17,17 +17,17 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 /**
- * Dealerlux Utility Client Switcher module.
+ * Dealerlux Utility Client Switcher.
  */
 class Client_Switcher {
 
 	/**
-	 * Use the singleton loader.
+	 * Use the Dealerlux Utility singleton loader.
 	 */
 	use Singleton_Trait;
 
 	/**
-	 * Whether the module has already executed during this request.
+	 * Whether the switcher has already run during this request.
 	 *
 	 * @var bool
 	 */
@@ -46,22 +46,22 @@ class Client_Switcher {
 	private function __construct() {}
 
 	/**
-	 * Determine whether this class should be registered.
+	 * Determine whether this class may be registered.
 	 *
-	 * Client Switcher requires its external environment configuration.
+	 * Always register so fallback constants can be defined when the external
+	 * configuration is unavailable or invalid.
 	 *
 	 * @return bool
 	 */
 	protected static function can_register() {
-		return defined( 'SSS_CLIENT_ENVIRONMENT' );
+		return true;
 	}
 
 	/**
-	 * Register the module.
+	 * Register the Client Switcher.
 	 *
-	 * Initializer registers this class while the muplugins_loaded action is
-	 * running. The switch must therefore execute immediately instead of adding
-	 * another muplugins_loaded callback.
+	 * Initializer calls this class while muplugins_loaded is running, before
+	 * ordinary active plugins are loaded.
 	 *
 	 * @return void
 	 */
@@ -70,7 +70,7 @@ class Client_Switcher {
 	}
 
 	/**
-	 * Execute Client Switcher.
+	 * Execute the Client Switcher.
 	 *
 	 * @return bool
 	 */
@@ -89,6 +89,21 @@ class Client_Switcher {
 			return false;
 		}
 
+		$validation_error = $this->validate_configuration(
+			$configuration
+		);
+
+		if ( $validation_error instanceof \WP_Error ) {
+			$this->define_fallback_api_constants();
+
+			$this->dispatch_failure(
+				null,
+				$validation_error
+			);
+
+			return false;
+		}
+
 		$website = Environment_Resolver::instance()->resolve(
 			$configuration
 		);
@@ -96,16 +111,14 @@ class Client_Switcher {
 		if ( null === $website ) {
 			$this->define_fallback_api_constants();
 
-			do_action(
-				'dealerlux_utility_client_switcher_failed',
+			$this->dispatch_failure(
 				null,
 				new \WP_Error(
 					'dealerlux_utility_client_environment_not_found',
 					$this->build_selection_failure_message(
 						$configuration
 					)
-				),
-				array()
+				)
 			);
 
 			return false;
@@ -113,26 +126,50 @@ class Client_Switcher {
 
 		$this->selected_website = $website;
 
+		/*
+		 * These constant names must remain unchanged because they are consumed
+		 * by the SPA Software Solutions plugin.
+		 */
 		$this->define_api_constants(
 			$website
 		);
 
-		$managed_plugins = (
-			isset( $configuration['plugins'] ) &&
-			is_array( $configuration['plugins'] )
-		)
-			? $configuration['plugins']
-			: array();
+		/*
+		 * Managed client plugins are derived from websites[*].plugin.
+		 *
+		 * There is no second manually maintained plugins array.
+		 */
+		$managed_plugins = $this->get_managed_plugin_slugs(
+			$configuration
+		);
 
+		if ( empty( $managed_plugins ) ) {
+			$this->dispatch_failure(
+				$website,
+				new \WP_Error(
+					'dealerlux_utility_client_plugins_empty',
+					'No managed client plugins could be derived from the websites configuration.'
+				)
+			);
 
-        if (
-            $this->is_environment_current(
-                $website,
-                $managed_plugins
-            )
-        ) {
-            return true;
-        }
+			return false;
+		}
+
+		/*
+		 * Lightweight path for ordinary requests.
+		 *
+		 * When the selected environment, stored selection, and active managed
+		 * plugin state already match, no plugin discovery, activation,
+		 * deactivation, or database write occurs.
+		 */
+		if (
+			$this->is_environment_current(
+				$website,
+				$managed_plugins
+			)
+		) {
+			return true;
+		}
 
 		do_action(
 			'dealerlux_utility_client_switcher_before_switch',
@@ -145,13 +182,58 @@ class Client_Switcher {
 			$managed_plugins
 		);
 
-		if ( empty( $result['success'] ) ) {
-			do_action(
-				'dealerlux_utility_client_switcher_failed',
+		if (
+			! is_array( $result ) ||
+			empty( $result['success'] )
+		) {
+			$error = (
+				is_array( $result ) &&
+				isset( $result['error'] ) &&
+				$result['error'] instanceof \WP_Error
+			)
+				? $result['error']
+				: new \WP_Error(
+					'dealerlux_utility_client_switcher_failed',
+					'The Client Switcher could not synchronize the managed client plugins.'
+				);
+
+			$this->dispatch_failure(
 				$website,
-				isset( $result['error'] )
-					? $result['error']
-					: null,
+				$error,
+				is_array( $result )
+					? $result
+					: array()
+			);
+
+			return false;
+		}
+
+		$target_slug = isset( $result['target_slug'] )
+			? trim(
+				(string) $result['target_slug'],
+				'/'
+			)
+			: '';
+
+		$target_file = isset( $result['target_file'] )
+			? ltrim(
+				wp_normalize_path(
+					(string) $result['target_file']
+				),
+				'/'
+			)
+			: '';
+
+		if (
+			'' === $target_slug ||
+			'' === $target_file
+		) {
+			$this->dispatch_failure(
+				$website,
+				new \WP_Error(
+					'dealerlux_utility_client_switcher_invalid_result',
+					'The Client Switcher completed without a valid target plugin.'
+				),
 				$result
 			);
 
@@ -159,8 +241,8 @@ class Client_Switcher {
 		}
 
 		$stored = Selection_Store::instance()->save(
-			$result['target_slug'],
-			$result['target_file'],
+			$target_slug,
+			$target_file,
 			$website
 		);
 
@@ -168,7 +250,7 @@ class Client_Switcher {
 			$this->log(
 				sprintf(
 					'The selected plugin state could not be stored for "%s".',
-					$result['target_slug']
+					$target_slug
 				)
 			);
 		}
@@ -182,130 +264,350 @@ class Client_Switcher {
 		return true;
 	}
 
-    /**
-     * Determine whether the selected client plugin state is already correct.
-     *
-     * This avoids loading the full WordPress plugin API and scanning installed
-     * plugin headers when no environment or active-plugin state has changed.
-     *
-     * @param array $website        Selected website configuration.
-     * @param array $managed_plugins Managed client plugin slugs.
-     * @return bool
-     */
-    private function is_environment_current(
-        array $website,
-        array $managed_plugins
-    ) {
-        $stored_selection = Selection_Store::instance()->get();
+	/**
+	 * Validate the Client Switcher configuration.
+	 *
+	 * @param array $configuration Client environment configuration.
+	 * @return true|\WP_Error
+	 */
+	private function validate_configuration(
+		array $configuration
+	) {
+		if (
+			! isset( $configuration['env'] ) ||
+			! is_array( $configuration['env'] )
+		) {
+			return new \WP_Error(
+				'dealerlux_utility_client_env_missing',
+				'The Client Switcher env configuration is missing or invalid.'
+			);
+		}
 
-        if ( empty( $stored_selection ) ) {
-            return false;
-        }
+		if (
+			! isset( $configuration['websites'] ) ||
+			! is_array( $configuration['websites'] ) ||
+			empty( $configuration['websites'] )
+		) {
+			return new \WP_Error(
+				'dealerlux_utility_client_websites_missing',
+				'The Client Switcher websites configuration is missing or empty.'
+			);
+		}
 
-        $target_slug = isset( $website['plugin'] )
-            ? trim( (string) $website['plugin'], '/' )
-            : '';
+		$seen_client_ids       = array();
+		$seen_plugin_slugs     = array();
+		$configuration_errors = array();
 
-        if ( '' === $target_slug ) {
-            return false;
-        }
+		foreach (
+			$configuration['websites']
+			as $website_key => $website
+		) {
+			if ( ! is_array( $website ) ) {
+				$configuration_errors[] = sprintf(
+					'Website "%s" must contain an array.',
+					$website_key
+				);
 
-        $expected_values = array(
-            'plugin_slug'     => $target_slug,
-            'domain'          => isset( $website['domain'] )
-                ? (string) $website['domain']
-                : '',
-            'client_id'       => isset( $website['client_id'] )
-                ? (string) absint( $website['client_id'] )
-                : '0',
-            'dealer_group_id' => isset( $website['dealer_group_id'] )
-                ? (string) absint( $website['dealer_group_id'] )
-                : '0',
-        );
+				continue;
+			}
 
-        foreach ( $expected_values as $key => $expected_value ) {
-            $stored_value = isset( $stored_selection[ $key ] )
-                ? (string) $stored_selection[ $key ]
-                : '';
+			$plugin_slug = isset( $website['plugin'] )
+				? trim(
+					(string) $website['plugin'],
+					'/'
+				)
+				: '';
 
-            if ( $stored_value !== $expected_value ) {
-                return false;
-            }
-        }
+			if ( '' === $plugin_slug ) {
+				$configuration_errors[] = sprintf(
+					'Website "%s" does not define a plugin.',
+					$website_key
+				);
+			} else {
+				$seen_plugin_slugs[ $plugin_slug ] = true;
+			}
 
-        $target_file = isset( $stored_selection['plugin_file'] )
-            ? ltrim(
-                wp_normalize_path(
-                    (string) $stored_selection['plugin_file']
-                ),
-                '/'
-            )
-            : '';
+			$client_id = isset( $website['client_id'] )
+				? absint( $website['client_id'] )
+				: 0;
 
-        if ( '' === $target_file ) {
-            return false;
-        }
+			if ( 0 === $client_id ) {
+				$configuration_errors[] = sprintf(
+					'Website "%s" does not define a valid client_id.',
+					$website_key
+				);
+			} elseif ( isset( $seen_client_ids[ $client_id ] ) ) {
+				$configuration_errors[] = sprintf(
+					'Website "%1$s" duplicates client_id %2$d already assigned to "%3$s".',
+					$website_key,
+					$client_id,
+					$seen_client_ids[ $client_id ]
+				);
+			} else {
+				$seen_client_ids[ $client_id ] = $website_key;
+			}
 
-        $active_plugins = get_option(
-            'active_plugins',
-            array()
-        );
+			$dealer_group_id = isset(
+				$website['dealer_group_id']
+			)
+				? absint( $website['dealer_group_id'] )
+				: 0;
 
-        if ( ! is_array( $active_plugins ) ) {
-            return false;
-        }
+			if ( 0 === $dealer_group_id ) {
+				$configuration_errors[] = sprintf(
+					'Website "%s" does not define a valid dealer_group_id.',
+					$website_key
+				);
+			}
+		}
 
-        $active_plugins = array_map(
-            'wp_normalize_path',
-            $active_plugins
-        );
+		if ( ! empty( $configuration_errors ) ) {
+			return new \WP_Error(
+				'dealerlux_utility_client_configuration_invalid',
+				implode(
+					' ',
+					$configuration_errors
+				)
+			);
+		}
 
-        if ( ! in_array( $target_file, $active_plugins, true ) ) {
-            return false;
-        }
-
-        $managed_plugins = array_values(
-            array_unique(
-                array_filter(
-                    array_map(
-                        static function ( $plugin_slug ) {
-                            return trim(
-                                (string) $plugin_slug,
-                                '/'
-                            );
-                        },
-                        $managed_plugins
-                    )
-                )
-            )
-        );
-
-        foreach ( $active_plugins as $active_plugin_file ) {
-            $active_directory = dirname(
-                $active_plugin_file
-            );
-
-            if ( '.' === $active_directory ) {
-                continue;
-            }
-
-            if (
-                in_array(
-                    $active_directory,
-                    $managed_plugins,
-                    true
-                ) &&
-                $active_plugin_file !== $target_file
-            ) {
-                return false;
-            }
-        }
-
-        return true;
-    }
+		return true;
+	}
 
 	/**
-	 * Get the selected website.
+	 * Derive managed client plugin slugs from websites[*].plugin.
+	 *
+	 * This is the single source of truth for managed plugins.
+	 *
+	 * @param array $configuration Client environment configuration.
+	 * @return array
+	 */
+	private function get_managed_plugin_slugs(
+		array $configuration
+	) {
+		$managed_plugins = array();
+
+		if (
+			! isset( $configuration['websites'] ) ||
+			! is_array( $configuration['websites'] )
+		) {
+			return $managed_plugins;
+		}
+
+		foreach (
+			$configuration['websites']
+			as $website
+		) {
+			if (
+				! is_array( $website ) ||
+				! isset( $website['plugin'] ) ||
+				! is_scalar( $website['plugin'] )
+			) {
+				continue;
+			}
+
+			$plugin_slug = trim(
+				sanitize_text_field(
+					(string) $website['plugin']
+				),
+				'/'
+			);
+
+			if ( '' !== $plugin_slug ) {
+				$managed_plugins[] = $plugin_slug;
+			}
+		}
+
+		return array_values(
+			array_unique(
+				$managed_plugins
+			)
+		);
+	}
+
+	/**
+	 * Determine whether the currently selected environment is already correct.
+	 *
+	 * @param array $website        Selected website configuration.
+	 * @param array $managed_plugins Managed plugin directory slugs.
+	 * @return bool
+	 */
+	private function is_environment_current(
+		array $website,
+		array $managed_plugins
+	) {
+		$stored_selection = Selection_Store::instance()->get();
+
+		if ( empty( $stored_selection ) ) {
+			return false;
+		}
+
+		$target_slug = isset( $website['plugin'] )
+			? trim(
+				(string) $website['plugin'],
+				'/'
+			)
+			: '';
+
+		if ( '' === $target_slug ) {
+			return false;
+		}
+
+		$expected_values = array(
+			'plugin_slug'     => $target_slug,
+			'domain'          => isset( $website['domain'] )
+				? (string) $website['domain']
+				: '',
+			'client_id'       => isset( $website['client_id'] )
+				? (string) absint( $website['client_id'] )
+				: '0',
+			'dealer_group_id' => isset( $website['dealer_group_id'] )
+				? (string) absint(
+					$website['dealer_group_id']
+				)
+				: '0',
+		);
+
+		foreach ( $expected_values as $key => $expected_value ) {
+			$stored_value = isset( $stored_selection[ $key ] )
+				? (string) $stored_selection[ $key ]
+				: '';
+
+			if ( $stored_value !== $expected_value ) {
+				return false;
+			}
+		}
+
+		$target_file = isset( $stored_selection['plugin_file'] )
+			? ltrim(
+				wp_normalize_path(
+					(string) $stored_selection['plugin_file']
+				),
+				'/'
+			)
+			: '';
+
+		if ( '' === $target_file ) {
+			return false;
+		}
+
+		$active_plugins = get_option(
+			'active_plugins',
+			array()
+		);
+
+		if ( ! is_array( $active_plugins ) ) {
+			return false;
+		}
+
+		$active_plugins = $this->normalize_plugin_files(
+			$active_plugins
+		);
+
+		if (
+			! in_array(
+				$target_file,
+				$active_plugins,
+				true
+			)
+		) {
+			return false;
+		}
+
+		$managed_plugins = $this->normalize_plugin_slugs(
+			$managed_plugins
+		);
+
+		foreach ( $active_plugins as $active_plugin_file ) {
+			$active_directory = dirname(
+				$active_plugin_file
+			);
+
+			if ( '.' === $active_directory ) {
+				continue;
+			}
+
+			if (
+				in_array(
+					$active_directory,
+					$managed_plugins,
+					true
+				) &&
+				$active_plugin_file !== $target_file
+			) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Normalize plugin directory slugs.
+	 *
+	 * @param array $plugin_slugs Plugin slugs.
+	 * @return array
+	 */
+	private function normalize_plugin_slugs(
+		array $plugin_slugs
+	) {
+		$normalized = array();
+
+		foreach ( $plugin_slugs as $plugin_slug ) {
+			if ( ! is_scalar( $plugin_slug ) ) {
+				continue;
+			}
+
+			$plugin_slug = trim(
+				(string) $plugin_slug,
+				'/'
+			);
+
+			if ( '' !== $plugin_slug ) {
+				$normalized[] = $plugin_slug;
+			}
+		}
+
+		return array_values(
+			array_unique( $normalized )
+		);
+	}
+
+	/**
+	 * Normalize plugin files.
+	 *
+	 * @param array $plugin_files Plugin files.
+	 * @return array
+	 */
+	private function normalize_plugin_files(
+		array $plugin_files
+	) {
+		$normalized = array();
+
+		foreach ( $plugin_files as $plugin_file ) {
+			if ( ! is_scalar( $plugin_file ) ) {
+				continue;
+			}
+
+			$plugin_file = ltrim(
+				wp_normalize_path(
+					(string) $plugin_file
+				),
+				'/'
+			);
+
+			if ( '' !== $plugin_file ) {
+				$normalized[] = $plugin_file;
+			}
+		}
+
+		return array_values(
+			array_unique( $normalized )
+		);
+	}
+
+	/**
+	 * Get the selected website configuration.
 	 *
 	 * @return array|null
 	 */
@@ -341,47 +643,11 @@ class Client_Switcher {
 			return null;
 		}
 
-		if (
-			! isset( $configuration['env'] ) ||
-			! is_array( $configuration['env'] )
-		) {
-			$this->log(
-				'The Client Switcher env configuration is missing.'
-			);
-
-			return null;
-		}
-
-		if (
-			! isset( $configuration['websites'] ) ||
-			! is_array( $configuration['websites'] ) ||
-			empty( $configuration['websites'] )
-		) {
-			$this->log(
-				'The Client Switcher websites configuration is missing or empty.'
-			);
-
-			return null;
-		}
-
-		if (
-			isset( $configuration['plugins'] ) &&
-			! is_array( $configuration['plugins'] )
-		) {
-			$this->log(
-				'The Client Switcher plugins configuration must be an array.'
-			);
-
-			return null;
-		}
-
 		return $configuration;
 	}
 
 	/**
 	 * Define the required SSS API constants.
-	 *
-	 * These two names must remain unchanged for SSS compatibility.
 	 *
 	 * @param array $website Selected website.
 	 * @return void
@@ -409,7 +675,7 @@ class Client_Switcher {
 	}
 
 	/**
-	 * Define compatibility fallbacks when no environment can be resolved.
+	 * Define compatibility constants when selection fails.
 	 *
 	 * @return void
 	 */
@@ -430,18 +696,20 @@ class Client_Switcher {
 	}
 
 	/**
-	 * Build an environment-selection failure message.
+	 * Build the environment selection failure message.
 	 *
-	 * @param array $configuration Client Switcher configuration.
+	 * @param array $configuration Client configuration.
 	 * @return string
 	 */
 	private function build_selection_failure_message(
 		array $configuration
 	) {
-		$environment = isset( $configuration['env'] )
-			&& is_array( $configuration['env'] )
-				? $configuration['env']
-				: array();
+		$environment = (
+			isset( $configuration['env'] ) &&
+			is_array( $configuration['env'] )
+		)
+			? $configuration['env']
+			: array();
 
 		$selector = isset( $environment['use'] )
 			? (string) $environment['use']
@@ -459,12 +727,39 @@ class Client_Switcher {
 	}
 
 	/**
-	 * Write a Client Switcher message to the PHP error log.
+	 * Dispatch a Client Switcher failure.
 	 *
-	 * @param string $message Log message.
+	 * @param array|null $website Selected website.
+	 * @param \WP_Error  $error   Failure.
+	 * @param array      $context Additional context.
 	 * @return void
 	 */
-	private function log( $message ) {
+	private function dispatch_failure(
+		$website,
+		\WP_Error $error,
+		array $context = array()
+	) {
+		$this->log(
+			$error->get_error_message()
+		);
+
+		do_action(
+			'dealerlux_utility_client_switcher_failed',
+			$website,
+			$error,
+			$context
+		);
+	}
+
+	/**
+	 * Write a Client Switcher message to the error log.
+	 *
+	 * @param string $message Message.
+	 * @return void
+	 */
+	private function log(
+		$message
+	) {
 		error_log(
 			sprintf(
 				'[Dealerlux Utility Client Switcher] %s',

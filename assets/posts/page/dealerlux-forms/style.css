@@ -1,0 +1,6 @@
+/**
+ * Dealerlux Forms virtual page styles.
+ */
+#main > article.hentry > .entry-title {
+    display: none;
+}

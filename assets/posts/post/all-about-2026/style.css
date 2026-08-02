@@ -1,0 +1,18 @@
+body {
+    --sss_page_background_color: #transparent;
+    --sss_page_content_wrapper_bg_color: #f2f2f2;
+    --sss_page_content_wrapper_border: 1px solid #cecece;
+    --sss_page_content_wrapper_padding: 25px;
+    --sss_page_content_wrapper_border_radius: 15px;
+}
+.site-content,
+.SSS__standardPage {
+    background-color: var(--sss_page_background_color) !important;
+}
+
+.SSS__standardPage .sss-inner-wrapper {
+    background-color: var(--sss_page_content_wrapper_bg_color) !important;
+    border-radius: var(--sss_page_content_wrapper_border_radius);
+    padding: var(--sss_page_content_wrapper_padding);
+    border: var(--sss_page_content_wrapper_border);
+}

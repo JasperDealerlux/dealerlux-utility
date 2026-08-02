@@ -78,22 +78,22 @@ return sprintf(
 					<!-- wp:paragraph {"align":"center"} -->
 					<p class="has-text-align-center">Select a form to view it inside an expandable accordion section.</p>
 					<!-- /wp:paragraph -->
+					
+					<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
+					<div class="wp-block-buttons">
+					<!-- wp:button -->
+					<div class="wp-block-button">
+					<a class="wp-block-button__link wp-element-button" href="%2$s">View Accordion Forms</a>
+					</div>
+					<!-- /wp:button -->
+					</div>
+					<!-- /wp:buttons -->
+
+					<br />
 
 					<!-- wp:shortcode -->
 					[dl_form_selector url="%2$s" placeholder="Select an Accordion Form" allow_clear="false" class="dealerlux-accordion-form-selector"]
 					<!-- /wp:shortcode -->
-
-					<br />
-
-					<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
-					<div class="wp-block-buttons">
-						<!-- wp:button -->
-						<div class="wp-block-button">
-							<a class="wp-block-button__link wp-element-button" href="%2$s">View Accordion Forms</a>
-						</div>
-						<!-- /wp:button -->
-					</div>
-					<!-- /wp:buttons -->
 
 				</div>
 				<!-- /wp:group -->

@@ -9,6 +9,7 @@
 namespace DealerluxUtils\Shortcodes\Forms;
 
 use DealerluxUtils\Registries\Options_Registry;
+use DealerluxUtils\Traits\Plugin_Assets as Plugin_Assets_Trait;
 use DealerluxUtils\Traits\Singleton as Singleton_Trait;
 
 if ( ! defined( 'WPINC' ) ) {
@@ -98,6 +99,11 @@ class Client_Form_Selector_Shortcode {
 	use Singleton_Trait;
 
 	/**
+	 * Use shared Dealerlux Utility asset helpers.
+	 */
+	use Plugin_Assets_Trait;
+
+	/**
 	 * Constructor.
 	 */
 	private function __construct() {}
@@ -163,14 +169,17 @@ class Client_Form_Selector_Shortcode {
 			return '';
 		}
 
-
-		$options = $this->normalize_forms( $forms );
+		$options = $this->normalize_forms(
+			$forms
+		);
 
 		if ( empty( $options ) ) {
 			return '';
 		}
 
-		$base_url = $this->resolve_base_url( $attributes['url'] );
+		$base_url = $this->resolve_base_url(
+			$attributes['url']
+		);
 
 		if ( '' === $base_url ) {
 			return '';
@@ -253,7 +262,9 @@ class Client_Form_Selector_Shortcode {
 		</div>
 		<?php
 
-		return trim( ob_get_clean() );
+		return trim(
+			ob_get_clean()
+		);
 	}
 
 	/**
@@ -293,6 +304,9 @@ class Client_Form_Selector_Shortcode {
 			return;
 		}
 
+		$selector_style_path = 'assets/shortcodes/forms/css/form-selector.css';
+		$selector_script_path = 'assets/shortcodes/forms/js/form-selector.js';
+
 		wp_register_style(
 			$this->select2_style_handle,
 			sprintf(
@@ -303,18 +317,20 @@ class Client_Form_Selector_Shortcode {
 			$this->select2_version
 		);
 
-		wp_register_style(
-			$this->selector_style_handle,
-			$this->get_asset_url(
-				'assets/shortcodes/forms/css/form-selector.css'
-			),
-			array(
-				$this->select2_style_handle,
-			),
-			$this->get_asset_version(
-				'assets/shortcodes/forms/css/form-selector.css'
-			)
-		);
+		if ( $this->plugin_asset_exists( $selector_style_path ) ) {
+			wp_register_style(
+				$this->selector_style_handle,
+				$this->get_asset_url(
+					$selector_style_path
+				),
+				array(
+					$this->select2_style_handle,
+				),
+				$this->get_asset_version(
+					$selector_style_path
+				)
+			);
+		}
 
 		wp_register_script(
 			$this->select2_script_handle,
@@ -329,131 +345,135 @@ class Client_Form_Selector_Shortcode {
 			true
 		);
 
-		wp_register_script(
-			$this->selector_script_handle,
-			$this->get_asset_url(
-				'assets/shortcodes/forms/js/form-selector.js'
-			),
-			array(
-				'jquery',
-				$this->select2_script_handle,
-			),
-			$this->get_asset_version(
-				'assets/shortcodes/forms/js/form-selector.js'
-			),
-			true
-		);
+		if ( $this->plugin_asset_exists( $selector_script_path ) ) {
+			wp_register_script(
+				$this->selector_script_handle,
+				$this->get_asset_url(
+					$selector_script_path
+				),
+				array(
+					'jquery',
+					$this->select2_script_handle,
+				),
+				$this->get_asset_version(
+					$selector_script_path
+				),
+				true
+			);
+		}
 
 		$this->assets_registered = true;
 	}
 
-    /**
-     * Load forms.php from the selected SSS client plugin.
-     *
-     * Supports plugin_directory values containing either:
-     *
-     * 1. A complete filesystem path.
-     * 2. A WordPress plugin directory slug.
-     *
-     * @return array
-     */
-    private function load_forms() {
-        $client_plugin_data = Options_Registry::instance()
-            ->get_value(
-                $this->option_selector,
-                array()
-            );
+	/**
+	 * Load forms.php from the selected SSS client plugin.
+	 *
+	 * Supports plugin_directory values containing either:
+	 *
+	 * 1. A complete filesystem path.
+	 * 2. A WordPress plugin directory slug.
+	 *
+	 * @return array
+	 */
+	private function load_forms() {
+		$client_plugin_data = Options_Registry::instance()
+			->get_value(
+				$this->option_selector,
+				array()
+			);
 
-        if (
-            ! is_array( $client_plugin_data ) ||
-            empty( $client_plugin_data['plugin_directory'] ) ||
-            ! is_string( $client_plugin_data['plugin_directory'] )
-        ) {
-            return array();
-        }
+		if (
+			! is_array( $client_plugin_data ) ||
+			empty( $client_plugin_data['plugin_directory'] ) ||
+			! is_string( $client_plugin_data['plugin_directory'] )
+		) {
+			return array();
+		}
 
-        $plugin_directory = wp_normalize_path(
-            trim( $client_plugin_data['plugin_directory'] )
-        );
+		$plugin_directory = wp_normalize_path(
+			trim( $client_plugin_data['plugin_directory'] )
+		);
 
-        if ( '' === $plugin_directory ) {
-            return array();
-        }
+		if ( '' === $plugin_directory ) {
+			return array();
+		}
 
-        $forms_file = $this->resolve_forms_file(
-            $plugin_directory
-        );
+		$forms_file = $this->resolve_forms_file(
+			$plugin_directory
+		);
 
-        if (
-            '' === $forms_file ||
-            ! is_file( $forms_file ) ||
-            ! is_readable( $forms_file )
-        ) {
-            return array();
-        }
+		if (
+			'' === $forms_file ||
+			! is_file( $forms_file ) ||
+			! is_readable( $forms_file )
+		) {
+			return array();
+		}
 
-        $forms = require $forms_file;
+		$forms = require $forms_file;
 
-        return is_array( $forms )
-            ? $forms
-            : array();
-    }
+		return is_array( $forms )
+			? $forms
+			: array();
+	}
 
-    /**
-     * Resolve the forms.php path from a plugin path or directory slug.
-     *
-     * @param string $plugin_directory Plugin directory path or slug.
-     * @return string
-     */
-    private function resolve_forms_file( $plugin_directory ) {
-        $plugin_directory = wp_normalize_path(
-            trim( $plugin_directory )
-        );
+	/**
+	 * Resolve the forms.php path from a plugin path or directory slug.
+	 *
+	 * @param string $plugin_directory Plugin directory path or slug.
+	 * @return string
+	 */
+	private function resolve_forms_file( $plugin_directory ) {
+		$plugin_directory = wp_normalize_path(
+			trim( $plugin_directory )
+		);
 
-        if ( '' === $plugin_directory ) {
-            return '';
-        }
+		if ( '' === $plugin_directory ) {
+			return '';
+		}
 
-        /*
-        * The registry already supplied a complete filesystem path.
-        *
-        * Example:
-        * /var/www/html/wp-content/plugins/sss-client-plugin
-        */
-        if ( is_dir( $plugin_directory ) ) {
-            return wp_normalize_path(
-                trailingslashit( $plugin_directory )
-                . 'forms/forms.php'
-            );
-        }
+		/*
+		 * The registry supplied a complete filesystem path.
+		 *
+		 * Example:
+		 *
+		 * /var/www/html/wp-content/plugins/sss-client-plugin
+		 */
+		if ( is_dir( $plugin_directory ) ) {
+			return wp_normalize_path(
+				trailingslashit( $plugin_directory )
+				. 'forms/forms.php'
+			);
+		}
 
-        /*
-        * The registry supplied only a plugin directory slug.
-        *
-        * Example:
-        * sss-client-plugin
-        */
-        if ( \function_exists( 'dl_get_plugin_file_path' ) ) {
-            $plugin_slug = sanitize_file_name(
-                basename( $plugin_directory )
-            );
+		/*
+		 * The registry supplied only a plugin directory slug.
+		 *
+		 * Example:
+		 *
+		 * sss-client-plugin
+		 */
+		if ( \function_exists( 'dl_get_plugin_file_path' ) ) {
+			$plugin_slug = sanitize_file_name(
+				basename( $plugin_directory )
+			);
 
-            if ( '' === $plugin_slug ) {
-                return '';
-            }
+			if ( '' === $plugin_slug ) {
+				return '';
+			}
 
-            $forms_file = \dl_get_plugin_file_path(
-                $plugin_slug,
-                'forms/forms.php'
-            );
+			$forms_file = \dl_get_plugin_file_path(
+				$plugin_slug,
+				'forms/forms.php'
+			);
 
-            return is_string( $forms_file )
-                ? wp_normalize_path( $forms_file )
-                : '';
-        }
+			return is_string( $forms_file )
+				? wp_normalize_path( $forms_file )
+				: '';
+		}
 
-        return '';
-    }
+		return '';
+	}
 
 	/**
 	 * Normalize forms.php entries into selector options.
@@ -469,14 +489,16 @@ class Client_Form_Selector_Shortcode {
 				continue;
 			}
 
-            $normalized_key = $form_key;
+			$normalized_key = trim(
+				$form_key
+			);
 
 			if ( '' === $normalized_key ) {
 				continue;
 			}
 
 			$options[ $normalized_key ] = $this->format_form_title(
-				$form_key
+				$normalized_key
 			);
 		}
 
@@ -574,7 +596,10 @@ class Client_Form_Selector_Shortcode {
 			? wp_unslash( $_SERVER['REQUEST_URI'] )
 			: '';
 
-		if ( ! is_string( $request_uri ) || '' === trim( $request_uri ) ) {
+		if (
+			! is_string( $request_uri ) ||
+			'' === trim( $request_uri )
+		) {
 			return '';
 		}
 
@@ -655,11 +680,23 @@ class Client_Form_Selector_Shortcode {
 			trim( (string) $value )
 		);
 
-		if ( in_array( $value, array( '1', 'true', 'yes', 'on' ), true ) ) {
+		if (
+			in_array(
+				$value,
+				array( '1', 'true', 'yes', 'on' ),
+				true
+			)
+		) {
 			return true;
 		}
 
-		if ( in_array( $value, array( '0', 'false', 'no', 'off' ), true ) ) {
+		if (
+			in_array(
+				$value,
+				array( '0', 'false', 'no', 'off' ),
+				true
+			)
+		) {
 			return false;
 		}
 
@@ -694,74 +731,5 @@ class Client_Form_Selector_Shortcode {
 		return array_values(
 			array_filter( $classes )
 		);
-	}
-
-    /**
-     * Get the DealerLux Utility plugin root path.
-     *
-     * The current class resides in:
-     *
-     * src/shortcodes/forms/
-     *
-     * @return string
-     */
-    private function get_plugin_root_path() {
-        return dirname(
-            __DIR__,
-            3
-        );
-    }
-
-    /**
-     * Get the main plugin file path.
-     *
-     * @return string
-     */
-    private function get_plugin_file_path() {
-        return $this->get_plugin_root_path()
-            . '/dealerlux-utility.php';
-    }
-
-    /**
-     * Get a plugin asset URL.
-     *
-     * @param string $relative_path Relative asset path.
-     * @return string
-     */
-    private function get_asset_url( $relative_path ) {
-        $relative_path = ltrim(
-            $relative_path,
-            '/'
-        );
-
-        return plugins_url(
-            $relative_path,
-            $this->get_plugin_file_path()
-        );
-    }
-
-	/**
-	 * Get a cache-safe asset version.
-	 *
-	 * @param string $relative_path Relative asset path.
-	 * @return string
-	 */
-	private function get_asset_version( $relative_path ) {
-        $relative_path = ltrim(
-            $relative_path,
-            '/'
-        );
-
-        $absolute_path = $this->get_plugin_root_path()
-            . '/'
-            . $relative_path;
-
-        if ( is_file( $absolute_path ) ) {
-            return (string) filemtime(
-                $absolute_path
-            );
-        }
-
-        return '1.0.0';
 	}
 }

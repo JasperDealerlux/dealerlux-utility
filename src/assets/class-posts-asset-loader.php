@@ -21,6 +21,7 @@
 namespace DealerluxUtils\Assets;
 
 use DealerluxUtils\Registries\Posts_Registry;
+use DealerluxUtils\Traits\Plugin_Assets as Plugin_Assets_Trait;
 use DealerluxUtils\Traits\Singleton as Singleton_Trait;
 
 if ( ! defined( 'WPINC' ) ) {
@@ -32,7 +33,15 @@ if ( ! defined( 'WPINC' ) ) {
  */
 class Posts_Asset_Loader {
 
+	/**
+	 * Use the singleton loader.
+	 */
 	use Singleton_Trait;
+
+	/**
+	 * Use shared Dealerlux Utility asset helpers.
+	 */
+	use Plugin_Assets_Trait;
 
 	/**
 	 * Relative directory containing virtual post assets.
@@ -56,35 +65,9 @@ class Posts_Asset_Loader {
 	private const SCRIPT_FILENAME = 'script.js';
 
 	/**
-	 * Plugin root filesystem path.
-	 *
-	 * @var string
-	 */
-	private $plugin_directory;
-
-	/**
-	 * Plugin root public URL.
-	 *
-	 * @var string
-	 */
-	private $plugin_url;
-
-	/**
 	 * Constructor.
 	 */
-	private function __construct() {
-		$this->plugin_directory = trailingslashit(
-			wp_normalize_path(
-				dirname( __DIR__, 2 )
-			)
-		);
-
-		$this->plugin_url = trailingslashit(
-			plugin_dir_url(
-				$this->plugin_directory . 'core.php'
-			)
-		);
-	}
+	private function __construct() {}
 
 	/**
 	 * Determine whether this component can be registered.
@@ -138,9 +121,17 @@ class Posts_Asset_Loader {
 			return;
 		}
 
-		$post_type = sanitize_key( $post_type );
-		$post_key  = sanitize_key( $post_key );
-		$slug      = sanitize_title( $current_post['slug'] );
+		$post_type = sanitize_key(
+			$post_type
+		);
+
+		$post_key = sanitize_key(
+			$post_key
+		);
+
+		$slug = sanitize_title(
+			$current_post['slug']
+		);
 
 		if (
 			'' === $post_type ||
@@ -149,27 +140,24 @@ class Posts_Asset_Loader {
 			return;
 		}
 
-		$asset_directory = $this->get_asset_directory(
+		$relative_asset_directory = $this->get_relative_asset_directory(
 			$post_type,
 			$slug
 		);
 
-		$asset_url = $this->get_asset_url(
-			$post_type,
-			$slug
-		);
+		if ( '' === $relative_asset_directory ) {
+			return;
+		}
 
 		$this->enqueue_style(
-			$asset_directory,
-			$asset_url,
+			$relative_asset_directory,
 			$post_type,
 			$post_key,
 			$slug
 		);
 
 		$this->enqueue_script(
-			$asset_directory,
-			$asset_url,
+			$relative_asset_directory,
 			$post_type,
 			$post_key,
 			$slug
@@ -177,68 +165,66 @@ class Posts_Asset_Loader {
 	}
 
 	/**
-	 * Get the asset filesystem directory for a virtual post.
+	 * Get the relative asset directory for a virtual post.
 	 *
 	 * @param string $post_type Post type.
 	 * @param string $slug      Virtual post slug.
 	 * @return string
 	 */
-	private function get_asset_directory(
+	private function get_relative_asset_directory(
 		$post_type,
 		$slug
 	) {
-		return trailingslashit(
-			$this->plugin_directory
-			. self::ASSETS_DIRECTORY
+		$post_type = sanitize_key(
+			$post_type
+		);
+
+		$slug = sanitize_title(
+			$slug
+		);
+
+		if (
+			'' === $post_type ||
+			'' === $slug
+		) {
+			return '';
+		}
+
+		return self::ASSETS_DIRECTORY
 			. '/'
 			. $post_type
 			. '/'
-			. $slug
-		);
-	}
-
-	/**
-	 * Get the public asset URL for a virtual post.
-	 *
-	 * @param string $post_type Post type.
-	 * @param string $slug      Virtual post slug.
-	 * @return string
-	 */
-	private function get_asset_url(
-		$post_type,
-		$slug
-	) {
-		return trailingslashit(
-			$this->plugin_url
-			. self::ASSETS_DIRECTORY
-			. '/'
-			. rawurlencode( $post_type )
-			. '/'
-			. rawurlencode( $slug )
-		);
+			. $slug;
 	}
 
 	/**
 	 * Enqueue the virtual post stylesheet when it exists.
 	 *
-	 * @param string $asset_directory Asset filesystem directory.
-	 * @param string $asset_url       Public asset URL.
-	 * @param string $post_type       Post type.
-	 * @param string $post_key        Registry key.
-	 * @param string $slug            Post slug.
+	 * @param string $relative_asset_directory Relative asset directory.
+	 * @param string $post_type               Post type.
+	 * @param string $post_key                Registry key.
+	 * @param string $slug                    Post slug.
 	 * @return void
 	 */
 	private function enqueue_style(
-		$asset_directory,
-		$asset_url,
+		$relative_asset_directory,
 		$post_type,
 		$post_key,
 		$slug
 	) {
-		$file_path = $asset_directory
+		$relative_file_path = $relative_asset_directory
+			. '/'
 			. self::STYLE_FILENAME;
 
-		if ( ! is_file( $file_path ) ) {
+		if ( ! $this->plugin_asset_exists( $relative_file_path ) ) {
+			return;
+		}
+
+		$asset_url = $this->get_asset_url(
+			$relative_file_path
+		);
+
+		if ( '' === $asset_url ) {
 			return;
 		}
 
@@ -249,33 +235,42 @@ class Posts_Asset_Loader {
 				$slug,
 				'style'
 			),
-			$asset_url . self::STYLE_FILENAME,
+			$asset_url,
 			array(),
-			$this->get_asset_version( $file_path )
+			$this->get_asset_version(
+				$relative_file_path
+			)
 		);
 	}
 
 	/**
 	 * Enqueue the virtual post script when it exists.
 	 *
-	 * @param string $asset_directory Asset filesystem directory.
-	 * @param string $asset_url       Public asset URL.
-	 * @param string $post_type       Post type.
-	 * @param string $post_key        Registry key.
-	 * @param string $slug            Post slug.
+	 * @param string $relative_asset_directory Relative asset directory.
+	 * @param string $post_type               Post type.
+	 * @param string $post_key                Registry key.
+	 * @param string $slug                    Post slug.
 	 * @return void
 	 */
 	private function enqueue_script(
-		$asset_directory,
-		$asset_url,
+		$relative_asset_directory,
 		$post_type,
 		$post_key,
 		$slug
 	) {
-		$file_path = $asset_directory
+		$relative_file_path = $relative_asset_directory
+			. '/'
 			. self::SCRIPT_FILENAME;
 
-		if ( ! is_file( $file_path ) ) {
+		if ( ! $this->plugin_asset_exists( $relative_file_path ) ) {
+			return;
+		}
+
+		$asset_url = $this->get_asset_url(
+			$relative_file_path
+		);
+
+		if ( '' === $asset_url ) {
 			return;
 		}
 
@@ -286,9 +281,11 @@ class Posts_Asset_Loader {
 				$slug,
 				'script'
 			),
-			$asset_url . self::SCRIPT_FILENAME,
+			$asset_url,
 			array(),
-			$this->get_asset_version( $file_path ),
+			$this->get_asset_version(
+				$relative_file_path
+			),
 			true
 		);
 	}
@@ -325,23 +322,8 @@ class Posts_Asset_Loader {
 			)
 		);
 
-		return sanitize_key( $identifier );
-	}
-
-	/**
-	 * Get a cache-busting asset version.
-	 *
-	 * File modification time means developers do not need to manually update
-	 * an asset version after editing CSS or JavaScript.
-	 *
-	 * @param string $file_path Asset filesystem path.
-	 * @return string|null
-	 */
-	private function get_asset_version( $file_path ) {
-		$modified_time = filemtime( $file_path );
-
-		return false !== $modified_time
-			? (string) $modified_time
-			: null;
+		return sanitize_key(
+			$identifier
+		);
 	}
 }

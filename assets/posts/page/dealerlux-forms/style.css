@@ -4,3 +4,6 @@
 #main > article.hentry > .entry-title {
     display: none;
 }
+.wp-block-columns .wp-block-column {
+    background: #E0E0E0;
+}

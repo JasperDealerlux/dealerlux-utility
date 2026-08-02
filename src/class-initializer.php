@@ -13,6 +13,7 @@ use DealerluxUtils\Traits\Clients_Config_Loader as Clients_Config_Loader_Trait;
 use DealerluxUtils\Modules\Client_Switcher\Client_Switcher;
 use DealerluxUtils\Registries\Options_Registry;
 use DealerluxUtils\Registries\Posts_Registry;
+use DealerluxUtils\Assets\Posts_Asset_Loader;
 use DealerluxUtils\Shortcodes\Forms\Client_Forms_Shortcode;
 use DealerluxUtils\Shortcodes\Forms\Client_Form_Selector_Shortcode;
 
@@ -75,10 +76,11 @@ class Initializer {
 	 * @return void
 	 */
 	public function initialize_components() {
+		$this->initialize_assets();
 		$this->initialize_registries();
 		$this->initialize_modules();
-		$this->initialize_pages();
 		$this->initialize_shortcodes();
+		$this->initialize_pages();
 	}
 
 	/**
@@ -107,12 +109,15 @@ class Initializer {
 	}
 
 	/**
-	 * Initialize classes related to pages.
+	 * Initialize asset-loading classes.
+	 *
+	 * This runs after the post registry so asset loaders can inspect the
+	 * currently registered virtual post configuration.
 	 *
 	 * @return void
 	 */
-	private function initialize_pages() {
-		// Page-related classes are registered here.
+	private function initialize_assets() {
+		Posts_Asset_Loader::register();
 	}
 
 	/**
@@ -123,5 +128,14 @@ class Initializer {
 	private function initialize_shortcodes() {
 		Client_Forms_Shortcode::register();
 		Client_Form_Selector_Shortcode::register();
+	}
+
+	/**
+	 * Initialize classes related to pages.
+	 *
+	 * @return void
+	 */
+	private function initialize_pages() {
+		// Page-related classes are registered here.
 	}
 }

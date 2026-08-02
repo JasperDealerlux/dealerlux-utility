@@ -3,12 +3,12 @@
  * Class Client_Forms_Shortcode
  *
  * Generates CTA or accordion Gutenberg blocks from the selected
- * SSS Client plugin forms.php.
+ * SSS client plugin forms.php.
  */
 
 namespace DealerluxUtils\Shortcodes\Forms;
 
-use DealerluxUtils\Registries\Options_Registry;
+use DealerluxUtils\Services\Forms\Client_Forms_Provider;
 use DealerluxUtils\Traits\Singleton as Singleton_Trait;
 use DealerluxUtils\Traits\Url_Parameter as Url_Parameter_Trait;
 
@@ -43,22 +43,6 @@ class Client_Forms_Shortcode {
 	private $default_style = 'cta';
 
 	/**
-	 * Options Registry selector.
-	 *
-	 * This resolves:
-	 *
-	 * plugins.collection.dealerlux-utility.options
-	 *     .client_switcher_selected_plugin
-	 *
-	 * @var array
-	 */
-	private $option_selector = array(
-		'type'   => 'plugin',
-		'source' => 'dealerlux-utility',
-		'name'   => 'client_switcher_selected_plugin',
-	);
-
-	/**
 	 * Supported shortcode display styles.
 	 *
 	 * @var array
@@ -70,9 +54,6 @@ class Client_Forms_Shortcode {
 
 	/**
 	 * URL query parameters used by this class.
-	 *
-	 * Centralizes parameter names to avoid duplicated string literals
-	 * and make future changes easier to maintain.
 	 *
 	 * @var array<string, string>
 	 */
@@ -143,7 +124,8 @@ class Client_Forms_Shortcode {
 			$attributes['style']
 		);
 
-		$forms = $this->load_forms();
+		$forms = Client_Forms_Provider::instance()
+			->get_forms();
 
 		if ( empty( $forms ) ) {
 			return '';
@@ -158,7 +140,9 @@ class Client_Forms_Shortcode {
 			return '';
 		}
 
-		return do_blocks( $block_markup );
+		return do_blocks(
+			$block_markup
+		);
 	}
 
 	/**
@@ -189,61 +173,6 @@ class Client_Forms_Shortcode {
 	}
 
 	/**
-	 * Load forms.php from the selected SSS client plugin.
-	 *
-	 * @return array
-	 */
-	private function load_forms() {
-		if ( ! \function_exists( 'dl_get_plugin_file_path' ) ) {
-			return array();
-		}
-
-		$client_plugin_data = Options_Registry::instance()
-			->get_value(
-				$this->option_selector,
-				array()
-			);
-
-		if (
-			! is_array( $client_plugin_data ) ||
-			empty( $client_plugin_data['plugin_directory'] ) ||
-			! is_string(
-				$client_plugin_data['plugin_directory']
-			)
-		) {
-			return array();
-		}
-
-		$plugin_directory = trim(
-			$client_plugin_data['plugin_directory']
-		);
-
-		if ( '' === $plugin_directory ) {
-			return array();
-		}
-
-		$forms_file = \dl_get_plugin_file_path(
-			$plugin_directory,
-			'forms/forms.php'
-		);
-
-		if (
-			! is_string( $forms_file ) ||
-			'' === trim( $forms_file ) ||
-			! is_file( $forms_file ) ||
-			! is_readable( $forms_file )
-		) {
-			return array();
-		}
-
-		$forms = require $forms_file;
-
-		return is_array( $forms )
-			? $forms
-			: array();
-	}
-
-	/**
 	 * Build Gutenberg blocks using the requested display style.
 	 *
 	 * @param array  $forms Forms configuration.
@@ -253,11 +182,15 @@ class Client_Forms_Shortcode {
 	private function build_blocks( array $forms, $style ) {
 		switch ( $style ) {
 			case 'accordion':
-				return $this->build_accordion_blocks( $forms );
+				return $this->build_accordion_blocks(
+					$forms
+				);
 
 			case 'cta':
 			default:
-				return $this->build_cta_blocks( $forms );
+				return $this->build_cta_blocks(
+					$forms
+				);
 		}
 	}
 
@@ -270,8 +203,8 @@ class Client_Forms_Shortcode {
 	private function build_cta_blocks( array $forms ) {
 		$icon_blocks = array();
 
-		foreach ( $forms as $form_key => $form ) {
-			if ( ! $this->is_valid_form( $form_key, $form ) ) {
+		foreach ( array_keys( $forms ) as $form_key ) {
+			if ( ! $this->can_display_form( $form_key ) ) {
 				continue;
 			}
 
@@ -328,8 +261,8 @@ class Client_Forms_Shortcode {
 	private function build_accordion_blocks( array $forms ) {
 		$accordion_items = array();
 
-		foreach ( $forms as $form_key => $form ) {
-			if ( ! $this->is_valid_form( $form_key, $form ) ) {
+		foreach ( array_keys( $forms ) as $form_key ) {
+			if ( ! $this->can_display_form( $form_key ) ) {
 				continue;
 			}
 
@@ -363,23 +296,21 @@ class Client_Forms_Shortcode {
 	 * @return string
 	 */
 	private function build_form_icon_block( $form_key ) {
-		$can_display_form = $this->can_display_form( $form_key );
-		
-		// Stop processing when the form cannot be displayed.
-		if ( ! $can_display_form ) {
-			return '';
-		}
-
-		$form_title = $this->format_form_title(
-			$form_key
-		);
+		$form_title = Client_Forms_Provider::instance()
+			->format_form_title(
+				$form_key
+			);
 
 		if ( '' === $form_title ) {
 			return '';
 		}
 
 		$icon_attributes = array(
-			'title'    => "$form_title - [$form_key]",
+			'title'    => sprintf(
+				'%1$s - [%2$s]',
+				$form_title,
+				$form_key
+			),
 			'form'     => $form_key,
 			'icon'     => 'fa-solid fa-file-lines',
 			'metadata' => array(
@@ -397,7 +328,7 @@ class Client_Forms_Shortcode {
 
 		return sprintf(
 			'<!-- wp:spa-software-solutions/cta-icon %s /-->',
-			$icon_json,
+			$icon_json
 		);
 	}
 
@@ -408,16 +339,10 @@ class Client_Forms_Shortcode {
 	 * @return string
 	 */
 	private function build_form_accordion_item( $form_key ) {
-		$can_display_form = $this->can_display_form( $form_key );
-		
-		// Stop processing when the form cannot be displayed.
-		if ( ! $can_display_form ) {
-			return '';
-		}
-
-		$form_title = $this->format_form_title(
-			$form_key
-		);
+		$form_title = Client_Forms_Provider::instance()
+			->format_form_title(
+				$form_key
+			);
 
 		if ( '' === $form_title ) {
 			return '';
@@ -439,11 +364,25 @@ class Client_Forms_Shortcode {
 			$form_title
 		);
 
-		$accordion_attributes = array(
-			'openByDefault' => $can_display_form,
+		$form_link = $this->get_form_link(
+			$form_key,
+			sprintf(
+				'View: %s Form',
+				$form_title
+			)
 		);
 
-		$accordion_json = wp_json_encode( $accordion_attributes );
+		$accordion_attributes = array(
+			'openByDefault' => true,
+		);
+
+		$accordion_json = $this->encode_block_attributes(
+			$accordion_attributes
+		);
+
+		if ( '' === $accordion_json ) {
+			return '';
+		}
 
 		return sprintf(
 			"<!-- wp:accordion-item %4\$s -->\n"
@@ -465,24 +404,9 @@ class Client_Forms_Shortcode {
 			. "</div>\n"
 			. '<!-- /wp:accordion-item -->',
 			$escaped_title,
-			$this->get_form_link( $form_key, "View: $escaped_title Form" ),
+			$form_link,
 			$lead_form_json,
 			$accordion_json
-		);
-	}
-
-	/**
-	 * Determine whether a forms.php entry is valid.
-	 *
-	 * @param mixed $form_key Form array key.
-	 * @param mixed $form     Form configuration.
-	 * @return bool
-	 */
-	private function is_valid_form( $form_key, $form ) {
-		return (
-			is_string( $form_key ) &&
-			'' !== trim( $form_key ) &&
-			is_array( $form )
 		);
 	}
 
@@ -505,19 +429,15 @@ class Client_Forms_Shortcode {
 	}
 
 	/**
-	 * Convert camelCase, PascalCase, snake_case, or kebab-case
-	 * into capitalized words.
+	 * Get the requested form key from the URL.
 	 *
-	 * Examples:
-	 *
-	 * siteInspection   becomes Site Inspection
-	 * requestPhoneCall becomes Request Phone Call
-	 * pool_opening     becomes Pool Opening
-	 *
-	 * @param string $form_key Form array key.
 	 * @return string
 	 */
-	private function format_form_title( $form_key ) {
+	private function get_requested_form_key() {
+		$form_key = $this->get_url_parameter(
+			'SET_FORM'
+		);
+
 		if (
 			! is_string( $form_key ) ||
 			'' === trim( $form_key )
@@ -525,64 +445,38 @@ class Client_Forms_Shortcode {
 			return '';
 		}
 
-		$title = preg_replace(
-			'/(?<=[a-z0-9])(?=[A-Z])/',
-			' ',
+		$form_key = sanitize_key(
 			$form_key
 		);
 
-		if ( ! is_string( $title ) ) {
-			return '';
-		}
-
-		$title = str_replace(
-			array( '_', '-' ),
-			' ',
-			$title
-		);
-
-		$title = preg_replace(
-			'/\s+/',
-			' ',
-			$title
-		);
-
-		if ( ! is_string( $title ) ) {
-			return '';
-		}
-
-		return ucwords(
-			strtolower(
-				trim( $title )
-			)
-		);
-	}
-
-	/**
-	 * Get the requested form key from the URL.
-	 *
-	 * @return string
-	 */
-	private function get_requested_form_key() {;
-		return $this->get_url_parameter( 'SET_FORM' );
+		return Client_Forms_Provider::instance()->has_form( $form_key )
+			? $form_key
+			: '';
 	}
 
 	/**
 	 * Determine whether a form can be displayed.
 	 *
-	 * When the set_form URL parameter is present, only the form whose key matches
-	 * the requested form key can be displayed. When the parameter is absent, all
-	 * forms can be displayed.
+	 * When the set_form URL parameter is present, only the form whose key
+	 * matches the requested form key can be displayed.
+	 *
+	 * When the parameter is absent, all forms can be displayed.
 	 *
 	 * @param string $form_key Form key to evaluate.
-	 *
-	 * @return bool True when the form can be displayed; otherwise, false.
+	 * @return bool
 	 */
 	private function can_display_form( $form_key ) {
+		if (
+			! is_string( $form_key ) ||
+			'' === trim( $form_key )
+		) {
+			return false;
+		}
+
 		$requested_form_key = $this->get_requested_form_key();
 
 		if (
-			! empty( $requested_form_key ) &&
+			'' !== $requested_form_key &&
 			$requested_form_key !== $form_key
 		) {
 			return false;
@@ -594,20 +488,27 @@ class Client_Forms_Shortcode {
 	/**
 	 * Build a form link for the current page.
 	 *
-	 * Adds or replaces the set_form query parameter using the provided form key
-	 * and returns an escaped HTML anchor element.
+	 * Adds or replaces the set_form query parameter using the provided form
+	 * key and returns an escaped HTML anchor element.
 	 *
 	 * @param string $key   Form key to use as the set_form parameter value.
 	 * @param string $label Link label.
-	 *
-	 * @return string Escaped HTML anchor element, or an empty string on failure.
+	 * @return string
 	 */
 	private function get_form_link( $key, $label ) {
+		if (
+			! Client_Forms_Provider::instance()->has_form( $key ) ||
+			! is_string( $label ) ||
+			'' === trim( $label )
+		) {
+			return '';
+		}
+
 		return $this->build_parameter_link(
 			array(
-				'key'         => 'SET_FORM',
-				'value'       => $key,
-				'label'       => $label,
+				'key'   => 'SET_FORM',
+				'value' => $key,
+				'label' => $label,
 			)
 		);
 	}

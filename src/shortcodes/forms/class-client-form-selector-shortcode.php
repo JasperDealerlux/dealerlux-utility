@@ -8,7 +8,7 @@
 
 namespace DealerluxUtils\Shortcodes\Forms;
 
-use DealerluxUtils\Registries\Options_Registry;
+use DealerluxUtils\Services\Forms\Client_Forms_Provider;
 use DealerluxUtils\Traits\Plugin_Assets as Plugin_Assets_Trait;
 use DealerluxUtils\Traits\Singleton as Singleton_Trait;
 
@@ -34,6 +34,13 @@ class Client_Form_Selector_Shortcode {
 	 * @var string
 	 */
 	private $shortcode_tag = 'dl_form_selector';
+
+	/**
+	 * URL query parameter used for the selected form.
+	 *
+	 * @var string
+	 */
+	private $form_query_parameter = 'set_form';
 
 	/**
 	 * Select2 stylesheet handle.
@@ -69,22 +76,6 @@ class Client_Form_Selector_Shortcode {
 	 * @var string
 	 */
 	private $select2_version = '4.0.13';
-
-	/**
-	 * Options Registry selector.
-	 *
-	 * Resolves:
-	 *
-	 * plugins.collection.dealerlux-utility.options
-	 *     .client_switcher_selected_plugin
-	 *
-	 * @var array
-	 */
-	private $option_selector = array(
-		'type'   => 'plugin',
-		'source' => 'dealerlux-utility',
-		'name'   => 'client_switcher_selected_plugin',
-	);
 
 	/**
 	 * Whether frontend assets have already been registered.
@@ -163,15 +154,8 @@ class Client_Form_Selector_Shortcode {
 			$this->shortcode_tag
 		);
 
-		$forms = $this->load_forms();
-
-		if ( empty( $forms ) ) {
-			return '';
-		}
-
-		$options = $this->normalize_forms(
-			$forms
-		);
+		$options = Client_Forms_Provider::instance()
+			->get_form_options();
 
 		if ( empty( $options ) ) {
 			return '';
@@ -246,16 +230,25 @@ class Client_Form_Selector_Shortcode {
 				<?php foreach ( $options as $form_key => $form_title ) : ?>
 					<?php
 					$form_url = add_query_arg(
-						'set_form',
+						$this->form_query_parameter,
 						$form_key,
 						$base_url
 					);
 					?>
+
 					<option
 						value="<?php echo esc_url( $form_url ); ?>"
 						<?php selected( $current_form, $form_key ); ?>
 					>
-						<?php echo esc_html( "($form_key) - $form_title" ); ?>
+						<?php
+						echo esc_html(
+							sprintf(
+								'(%1$s) - %2$s',
+								$form_key,
+								$form_title
+							)
+						);
+						?>
 					</option>
 				<?php endforeach; ?>
 			</select>
@@ -277,21 +270,29 @@ class Client_Form_Selector_Shortcode {
 	private function enqueue_assets() {
 		$this->register_assets();
 
-		wp_enqueue_style(
-			$this->select2_style_handle
-		);
+		if ( wp_style_is( $this->select2_style_handle, 'registered' ) ) {
+			wp_enqueue_style(
+				$this->select2_style_handle
+			);
+		}
 
-		wp_enqueue_style(
-			$this->selector_style_handle
-		);
+		if ( wp_style_is( $this->selector_style_handle, 'registered' ) ) {
+			wp_enqueue_style(
+				$this->selector_style_handle
+			);
+		}
 
-		wp_enqueue_script(
-			$this->select2_script_handle
-		);
+		if ( wp_script_is( $this->select2_script_handle, 'registered' ) ) {
+			wp_enqueue_script(
+				$this->select2_script_handle
+			);
+		}
 
-		wp_enqueue_script(
-			$this->selector_script_handle
-		);
+		if ( wp_script_is( $this->selector_script_handle, 'registered' ) ) {
+			wp_enqueue_script(
+				$this->selector_script_handle
+			);
+		}
 	}
 
 	/**
@@ -307,17 +308,22 @@ class Client_Form_Selector_Shortcode {
 		$selector_style_path = 'assets/shortcodes/forms/css/form-selector.css';
 		$selector_script_path = 'assets/shortcodes/forms/js/form-selector.js';
 
-		wp_register_style(
-			$this->select2_style_handle,
-			sprintf(
-				'https://cdn.jsdelivr.net/npm/select2@%s/dist/css/select2.min.css',
-				rawurlencode( $this->select2_version )
-			),
-			array(),
-			$this->select2_version
-		);
+		if ( ! wp_style_is( $this->select2_style_handle, 'registered' ) ) {
+			wp_register_style(
+				$this->select2_style_handle,
+				sprintf(
+					'https://cdn.jsdelivr.net/npm/select2@%s/dist/css/select2.min.css',
+					rawurlencode( $this->select2_version )
+				),
+				array(),
+				$this->select2_version
+			);
+		}
 
-		if ( $this->plugin_asset_exists( $selector_style_path ) ) {
+		if (
+			$this->plugin_asset_exists( $selector_style_path ) &&
+			! wp_style_is( $this->selector_style_handle, 'registered' )
+		) {
 			wp_register_style(
 				$this->selector_style_handle,
 				$this->get_asset_url(
@@ -332,20 +338,25 @@ class Client_Form_Selector_Shortcode {
 			);
 		}
 
-		wp_register_script(
-			$this->select2_script_handle,
-			sprintf(
-				'https://cdn.jsdelivr.net/npm/select2@%s/dist/js/select2.min.js',
-				rawurlencode( $this->select2_version )
-			),
-			array(
-				'jquery',
-			),
-			$this->select2_version,
-			true
-		);
+		if ( ! wp_script_is( $this->select2_script_handle, 'registered' ) ) {
+			wp_register_script(
+				$this->select2_script_handle,
+				sprintf(
+					'https://cdn.jsdelivr.net/npm/select2@%s/dist/js/select2.min.js',
+					rawurlencode( $this->select2_version )
+				),
+				array(
+					'jquery',
+				),
+				$this->select2_version,
+				true
+			);
+		}
 
-		if ( $this->plugin_asset_exists( $selector_script_path ) ) {
+		if (
+			$this->plugin_asset_exists( $selector_script_path ) &&
+			! wp_script_is( $this->selector_script_handle, 'registered' )
+		) {
 			wp_register_script(
 				$this->selector_script_handle,
 				$this->get_asset_url(
@@ -363,161 +374,6 @@ class Client_Form_Selector_Shortcode {
 		}
 
 		$this->assets_registered = true;
-	}
-
-	/**
-	 * Load forms.php from the selected SSS client plugin.
-	 *
-	 * Supports plugin_directory values containing either:
-	 *
-	 * 1. A complete filesystem path.
-	 * 2. A WordPress plugin directory slug.
-	 *
-	 * @return array
-	 */
-	private function load_forms() {
-		$client_plugin_data = Options_Registry::instance()
-			->get_value(
-				$this->option_selector,
-				array()
-			);
-
-		if (
-			! is_array( $client_plugin_data ) ||
-			empty( $client_plugin_data['plugin_directory'] ) ||
-			! is_string( $client_plugin_data['plugin_directory'] )
-		) {
-			return array();
-		}
-
-		$plugin_directory = wp_normalize_path(
-			trim( $client_plugin_data['plugin_directory'] )
-		);
-
-		if ( '' === $plugin_directory ) {
-			return array();
-		}
-
-		$forms_file = $this->resolve_forms_file(
-			$plugin_directory
-		);
-
-		if (
-			'' === $forms_file ||
-			! is_file( $forms_file ) ||
-			! is_readable( $forms_file )
-		) {
-			return array();
-		}
-
-		$forms = require $forms_file;
-
-		return is_array( $forms )
-			? $forms
-			: array();
-	}
-
-	/**
-	 * Resolve the forms.php path from a plugin path or directory slug.
-	 *
-	 * @param string $plugin_directory Plugin directory path or slug.
-	 * @return string
-	 */
-	private function resolve_forms_file( $plugin_directory ) {
-		$plugin_directory = wp_normalize_path(
-			trim( $plugin_directory )
-		);
-
-		if ( '' === $plugin_directory ) {
-			return '';
-		}
-
-		/*
-		 * The registry supplied a complete filesystem path.
-		 *
-		 * Example:
-		 *
-		 * /var/www/html/wp-content/plugins/sss-client-plugin
-		 */
-		if ( is_dir( $plugin_directory ) ) {
-			return wp_normalize_path(
-				trailingslashit( $plugin_directory )
-				. 'forms/forms.php'
-			);
-		}
-
-		/*
-		 * The registry supplied only a plugin directory slug.
-		 *
-		 * Example:
-		 *
-		 * sss-client-plugin
-		 */
-		if ( \function_exists( 'dl_get_plugin_file_path' ) ) {
-			$plugin_slug = sanitize_file_name(
-				basename( $plugin_directory )
-			);
-
-			if ( '' === $plugin_slug ) {
-				return '';
-			}
-
-			$forms_file = \dl_get_plugin_file_path(
-				$plugin_slug,
-				'forms/forms.php'
-			);
-
-			return is_string( $forms_file )
-				? wp_normalize_path( $forms_file )
-				: '';
-		}
-
-		return '';
-	}
-
-	/**
-	 * Normalize forms.php entries into selector options.
-	 *
-	 * @param array $forms Forms configuration.
-	 * @return array<string, string>
-	 */
-	private function normalize_forms( array $forms ) {
-		$options = array();
-
-		foreach ( $forms as $form_key => $form ) {
-			if ( ! $this->is_valid_form( $form_key, $form ) ) {
-				continue;
-			}
-
-			$normalized_key = trim(
-				$form_key
-			);
-
-			if ( '' === $normalized_key ) {
-				continue;
-			}
-
-			$options[ $normalized_key ] = $this->format_form_title(
-				$normalized_key
-			);
-		}
-
-		return $options;
-	}
-
-	/**
-	 * Determine whether a forms.php entry is valid.
-	 *
-	 * @param mixed $form_key Form array key.
-	 * @param mixed $form     Form configuration.
-	 * @return bool
-	 */
-	private function is_valid_form( $form_key, $form ) {
-		return (
-			is_string( $form_key ) &&
-			'' !== trim( $form_key ) &&
-			is_array( $form )
-		);
 	}
 
 	/**
@@ -554,7 +410,7 @@ class Client_Form_Selector_Shortcode {
 		}
 
 		return remove_query_arg(
-			'set_form',
+			$this->form_query_parameter,
 			$base_url
 		);
 	}
@@ -614,50 +470,19 @@ class Client_Form_Selector_Shortcode {
 	 * @return string
 	 */
 	private function get_requested_form_key() {
-		if ( ! isset( $_GET['set_form'] ) ) {
+		if ( ! isset( $_GET[ $this->form_query_parameter ] ) ) {
 			return '';
 		}
 
-		return sanitize_key(
-			wp_unslash( $_GET['set_form'] )
-		);
-	}
-
-	/**
-	 * Convert form keys into readable labels.
-	 *
-	 * Examples:
-	 *
-	 * contact          becomes Contact
-	 * contactForm      becomes Contact Form
-	 * service_request  becomes Service Request
-	 * request-estimate becomes Request Estimate
-	 *
-	 * @param string $form_key Form key.
-	 * @return string
-	 */
-	private function format_form_title( $form_key ) {
-		$title = preg_replace(
-			'/(?<=[a-z0-9])(?=[A-Z])/',
-			' ',
-			$form_key
+		$form_key = sanitize_key(
+			wp_unslash(
+				$_GET[ $this->form_query_parameter ]
+			)
 		);
 
-		$title = preg_replace(
-			'/[_\-]+/',
-			' ',
-			$title
-		);
-
-		$title = preg_replace(
-			'/\s+/',
-			' ',
-			$title
-		);
-
-		return ucwords(
-			trim( $title )
-		);
+		return Client_Forms_Provider::instance()->has_form( $form_key )
+			? $form_key
+			: '';
 	}
 
 	/**

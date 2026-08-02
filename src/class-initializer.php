@@ -13,7 +13,8 @@ use DealerluxUtils\Traits\Clients_Config_Loader as Clients_Config_Loader_Trait;
 use DealerluxUtils\Modules\Client_Switcher\Client_Switcher;
 use DealerluxUtils\Registries\Options_Registry;
 use DealerluxUtils\Registries\Posts_Registry;
-use DealerluxUtils\Shortcodes\Dump_Client_Forms_Shortcode;
+use DealerluxUtils\Shortcodes\Forms\Client_Forms_Shortcode;
+use DealerluxUtils\Shortcodes\Forms\Client_Form_Selector_Shortcode;
 
 if ( ! defined( 'WPINC' ) ) {
 	die;
@@ -120,6 +121,7 @@ class Initializer {
 	 * @return void
 	 */
 	private function initialize_shortcodes() {
-		Dump_Client_Forms_Shortcode::register();
+		Client_Forms_Shortcode::register();
+		Client_Form_Selector_Shortcode::register();
 	}
 }

@@ -38,10 +38,10 @@ return sprintf(
 		<!-- wp:columns {"align":"wide","style":{"spacing":{"blockGap":{"left":"24px"}}}} -->
 		<div class="wp-block-columns alignwide size-large">
 
-			<!-- wp:column -->
-			<div class="wp-block-column">
-				<!-- wp:group {"style":{"border":{"radius":"8px","width":"1px"},"spacing":{"padding":{"top":"40px","right":"32px","bottom":"40px","left":"32px"}}},"borderColor":"contrast-3","layout":{"type":"constrained"}} -->
-				<div class="wp-block-group has-border-color has-contrast-3-border-color" style="border-width:1px;border-radius:8px;padding-top:40px;padding-right:32px;padding-bottom:40px;padding-left:32px">
+			<!-- wp:column {"verticalAlignment":"stretch"} -->
+			<div class="wp-block-column is-vertically-aligned-stretch">
+				<!-- wp:group {"style":{"dimensions":{"minHeight":"100%%"},"border":{"radius":"8px","width":"1px"},"spacing":{"padding":{"top":"40px","right":"32px","bottom":"40px","left":"32px"}}},"borderColor":"contrast-3","layout":{"type":"constrained"}} -->
+				<div class="wp-block-group has-border-color has-contrast-3-border-color" style="border-width:1px;border-radius:8px;min-height:100%%;padding-top:40px;padding-right:32px;padding-bottom:40px;padding-left:32px">
 
 					<!-- wp:heading {"textAlign":"center","level":2} -->
 					<h2 class="wp-block-heading has-text-align-center">CTA Forms</h2>
@@ -66,10 +66,10 @@ return sprintf(
 			</div>
 			<!-- /wp:column -->
 
-			<!-- wp:column -->
-			<div class="wp-block-column">
-				<!-- wp:group {"style":{"border":{"radius":"8px","width":"1px"},"spacing":{"padding":{"top":"40px","right":"32px","bottom":"40px","left":"32px"}}},"borderColor":"contrast-3","layout":{"type":"constrained"}} -->
-				<div class="wp-block-group has-border-color has-contrast-3-border-color" style="border-width:1px;border-radius:8px;padding-top:40px;padding-right:32px;padding-bottom:40px;padding-left:32px">
+			<!-- wp:column {"verticalAlignment":"stretch"} -->
+			<div class="wp-block-column is-vertically-aligned-stretch">
+				<!-- wp:group {"style":{"dimensions":{"minHeight":"100%%"},"border":{"radius":"8px","width":"1px"},"spacing":{"padding":{"top":"40px","right":"32px","bottom":"40px","left":"32px"}}},"borderColor":"contrast-3","layout":{"type":"constrained"}} -->
+				<div class="wp-block-group has-border-color has-contrast-3-border-color" style="border-width:1px;border-radius:8px;min-height:100%%;padding-top:40px;padding-right:32px;padding-bottom:40px;padding-left:32px">
 
 					<!-- wp:heading {"textAlign":"center","level":2} -->
 					<h2 class="wp-block-heading has-text-align-center">Accordion Forms</h2>
@@ -82,7 +82,9 @@ return sprintf(
 					<!-- wp:shortcode -->
 					[dl_form_selector url="%2$s" placeholder="Select an Accordion Form" allow_clear="false" class="dealerlux-accordion-form-selector"]
 					<!-- /wp:shortcode -->
+
 					<br />
+
 					<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
 					<div class="wp-block-buttons">
 						<!-- wp:button -->

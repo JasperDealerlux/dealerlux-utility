@@ -1,0 +1,44 @@
+.dealerlux-form-selector {
+	--dealerlux-form-selector-width: 100%;
+	--dealerlux-form-selector-height: 44px;
+	--dealerlux-form-selector-border-color: #d2d5da;
+	--dealerlux-form-selector-border-radius: 4px;
+	--dealerlux-form-selector-background-color: #ffffff;
+
+	display: block;
+	width: var(--dealerlux-form-selector-width);
+}
+
+.dealerlux-form-selector__select {
+	width: 100%;
+}
+
+.dealerlux-form-selector
+.select2-container {
+	display: block;
+	width: 100% !important;
+}
+
+.dealerlux-form-selector
+.select2-container
+.select2-selection--single {
+	min-height: var(--dealerlux-form-selector-height);
+	border-color: var(--dealerlux-form-selector-border-color);
+	border-radius: var(--dealerlux-form-selector-border-radius);
+	background-color: var(--dealerlux-form-selector-background-color);
+}
+
+.dealerlux-form-selector
+.select2-container
+.select2-selection--single
+.select2-selection__rendered {
+	line-height: var(--dealerlux-form-selector-height);
+	padding-right: 40px;
+}
+
+.dealerlux-form-selector
+.select2-container
+.select2-selection--single
+.select2-selection__arrow {
+	height: var(--dealerlux-form-selector-height);
+}

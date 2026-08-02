@@ -246,7 +246,7 @@ class Client_Form_Selector_Shortcode {
 						value="<?php echo esc_url( $form_url ); ?>"
 						<?php selected( $current_form, $form_key ); ?>
 					>
-						<?php echo esc_html( $form_title ); ?>
+						<?php echo esc_html( "($form_key) - $form_title" ); ?>
 					</option>
 				<?php endforeach; ?>
 			</select>

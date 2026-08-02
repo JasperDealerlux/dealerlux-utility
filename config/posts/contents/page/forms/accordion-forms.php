@@ -15,6 +15,7 @@ return <<<'HTML'
 <!-- /wp:heading -->
  
 <!-- wp:shortcode -->
-[dl_dump_forms style="accordion"]
+[dl_form_selector]
+[dl_forms style="accordion"]
 <!-- /wp:shortcode -->
 HTML;

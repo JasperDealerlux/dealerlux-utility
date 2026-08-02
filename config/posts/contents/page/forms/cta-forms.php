@@ -15,6 +15,6 @@ return <<<'HTML'
 <!-- /wp:heading -->
 
 <!-- wp:shortcode -->
-[dl_dump_forms style="cta"]
+[dl_forms style="cta"]
 <!-- /wp:shortcode -->
 HTML;

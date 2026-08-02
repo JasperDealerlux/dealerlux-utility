@@ -2,7 +2,8 @@
 /**
  * DealerLux forms directory content.
  *
- * Displays links to the CTA Forms and Accordion Forms pages.
+ * Displays a link to the CTA Forms page and a form selector that redirects
+ * visitors to the Accordion Forms page using the set_form URL parameter.
  *
  * @package DealerluxUtils
  */
@@ -21,82 +22,86 @@ $accordion_forms_url = home_url(
 
 return sprintf(
 	'<!-- wp:group {"tagName":"section","align":"wide","layout":{"type":"constrained"}} -->
-<section class="wp-block-group alignwide">
-	<!-- wp:heading {"textAlign":"center","level":1} -->
-	<h1 class="wp-block-heading has-text-align-center">Forms Directory</h1>
-	<!-- /wp:heading -->
+	<section class="wp-block-group alignwide">
+		<!-- wp:heading {"textAlign":"center","level":1} -->
+		<h1 class="wp-block-heading has-text-align-center">Forms Directory</h1>
+		<!-- /wp:heading -->
 
-	<!-- wp:paragraph {"align":"center"} -->
-	<p class="has-text-align-center">Choose a form style to preview the available forms.</p>
-	<!-- /wp:paragraph -->
+		<!-- wp:paragraph {"align":"center"} -->
+		<p class="has-text-align-center">Choose a form style to preview the available forms.</p>
+		<!-- /wp:paragraph -->
 
-	<!-- wp:spacer {"height":"32px"} -->
-	<div style="height:32px" aria-hidden="true" class="wp-block-spacer"></div>
-	<!-- /wp:spacer -->
+		<!-- wp:spacer {"height":"32px"} -->
+		<div style="height:32px" aria-hidden="true" class="wp-block-spacer"></div>
+		<!-- /wp:spacer -->
 
-	<!-- wp:columns {"align":"wide","style":{"spacing":{"blockGap":{"left":"24px"}}}} -->
-	<div class="wp-block-columns alignwide">
+		<!-- wp:columns {"align":"wide","style":{"spacing":{"blockGap":{"left":"24px"}}}} -->
+		<div class="wp-block-columns alignwide size-large">
 
-		<!-- wp:column -->
-		<div class="wp-block-column">
-			<!-- wp:group {"style":{"border":{"radius":"8px","width":"1px"},"spacing":{"padding":{"top":"40px","right":"32px","bottom":"40px","left":"32px"}}},"borderColor":"contrast-3","layout":{"type":"constrained"}} -->
-			<div class="wp-block-group has-border-color has-contrast-3-border-color" style="border-width:1px;border-radius:8px;padding-top:40px;padding-right:32px;padding-bottom:40px;padding-left:32px">
+			<!-- wp:column -->
+			<div class="wp-block-column">
+				<!-- wp:group {"style":{"border":{"radius":"8px","width":"1px"},"spacing":{"padding":{"top":"40px","right":"32px","bottom":"40px","left":"32px"}}},"borderColor":"contrast-3","layout":{"type":"constrained"}} -->
+				<div class="wp-block-group has-border-color has-contrast-3-border-color" style="border-width:1px;border-radius:8px;padding-top:40px;padding-right:32px;padding-bottom:40px;padding-left:32px">
 
-				<!-- wp:heading {"textAlign":"center","level":2} -->
-				<h2 class="wp-block-heading has-text-align-center">CTA Forms</h2>
-				<!-- /wp:heading -->
+					<!-- wp:heading {"textAlign":"center","level":2} -->
+					<h2 class="wp-block-heading has-text-align-center">CTA Forms</h2>
+					<!-- /wp:heading -->
 
-				<!-- wp:paragraph {"align":"center"} -->
-				<p class="has-text-align-center">View forms designed with prominent calls to action.</p>
-				<!-- /wp:paragraph -->
+					<!-- wp:paragraph {"align":"center"} -->
+					<p class="has-text-align-center">View forms designed with prominent calls to action.</p>
+					<!-- /wp:paragraph -->
 
-				<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
-				<div class="wp-block-buttons">
-					<!-- wp:button -->
-					<div class="wp-block-button">
-						<a class="wp-block-button__link wp-element-button" href="%1$s">View CTA Forms</a>
+					<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
+					<div class="wp-block-buttons">
+						<!-- wp:button -->
+						<div class="wp-block-button">
+							<a class="wp-block-button__link wp-element-button" href="%1$s">View CTA Forms</a>
+						</div>
+						<!-- /wp:button -->
 					</div>
-					<!-- /wp:button -->
+					<!-- /wp:buttons -->
+
 				</div>
-				<!-- /wp:buttons -->
-
+				<!-- /wp:group -->
 			</div>
-			<!-- /wp:group -->
-		</div>
-		<!-- /wp:column -->
+			<!-- /wp:column -->
 
-		<!-- wp:column -->
-		<div class="wp-block-column">
-			<!-- wp:group {"style":{"border":{"radius":"8px","width":"1px"},"spacing":{"padding":{"top":"40px","right":"32px","bottom":"40px","left":"32px"}}},"borderColor":"contrast-3","layout":{"type":"constrained"}} -->
-			<div class="wp-block-group has-border-color has-contrast-3-border-color" style="border-width:1px;border-radius:8px;padding-top:40px;padding-right:32px;padding-bottom:40px;padding-left:32px">
+			<!-- wp:column -->
+			<div class="wp-block-column">
+				<!-- wp:group {"style":{"border":{"radius":"8px","width":"1px"},"spacing":{"padding":{"top":"40px","right":"32px","bottom":"40px","left":"32px"}}},"borderColor":"contrast-3","layout":{"type":"constrained"}} -->
+				<div class="wp-block-group has-border-color has-contrast-3-border-color" style="border-width:1px;border-radius:8px;padding-top:40px;padding-right:32px;padding-bottom:40px;padding-left:32px">
 
-				<!-- wp:heading {"textAlign":"center","level":2} -->
-				<h2 class="wp-block-heading has-text-align-center">Accordion Forms</h2>
-				<!-- /wp:heading -->
+					<!-- wp:heading {"textAlign":"center","level":2} -->
+					<h2 class="wp-block-heading has-text-align-center">Accordion Forms</h2>
+					<!-- /wp:heading -->
 
-				<!-- wp:paragraph {"align":"center"} -->
-				<p class="has-text-align-center">View forms organized inside expandable accordion sections.</p>
-				<!-- /wp:paragraph -->
+					<!-- wp:paragraph {"align":"center"} -->
+					<p class="has-text-align-center">Select a form to view it inside an expandable accordion section.</p>
+					<!-- /wp:paragraph -->
 
-				<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
-				<div class="wp-block-buttons">
-					<!-- wp:button -->
-					<div class="wp-block-button">
-						<a class="wp-block-button__link wp-element-button" href="%2$s">View Accordion Forms</a>
+					<!-- wp:shortcode -->
+					[dl_form_selector url="%2$s" placeholder="Select an Accordion Form" allow_clear="false" class="dealerlux-accordion-form-selector"]
+					<!-- /wp:shortcode -->
+					<br />
+					<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
+					<div class="wp-block-buttons">
+						<!-- wp:button -->
+						<div class="wp-block-button">
+							<a class="wp-block-button__link wp-element-button" href="%2$s">View Accordion Forms</a>
+						</div>
+						<!-- /wp:button -->
 					</div>
-					<!-- /wp:button -->
+					<!-- /wp:buttons -->
+
 				</div>
-				<!-- /wp:buttons -->
-
+				<!-- /wp:group -->
 			</div>
-			<!-- /wp:group -->
-		</div>
-		<!-- /wp:column -->
+			<!-- /wp:column -->
 
-	</div>
-	<!-- /wp:columns -->
-</section>
-<!-- /wp:group -->',
+		</div>
+		<!-- /wp:columns -->
+	</section>
+	<!-- /wp:group -->',
 	esc_url( $cta_forms_url ),
 	esc_url( $accordion_forms_url )
 );

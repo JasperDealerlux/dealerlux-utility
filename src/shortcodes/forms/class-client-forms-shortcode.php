@@ -1,12 +1,12 @@
 <?php
 /**
- * Class Dump_Client_Forms_Shortcode
+ * Class Client_Forms_Shortcode
  *
  * Generates CTA or accordion Gutenberg blocks from the selected
  * SSS Client plugin forms.php.
  */
 
-namespace DealerluxUtils\Shortcodes;
+namespace DealerluxUtils\Shortcodes\Forms;
 
 use DealerluxUtils\Registries\Options_Registry;
 use DealerluxUtils\Traits\Singleton as Singleton_Trait;
@@ -22,18 +22,18 @@ if ( ! defined( 'WPINC' ) ) {
  *
  * Supported shortcode styles:
  *
- * [dl_dump_forms]
- * [dl_dump_forms style="cta"]
- * [dl_dump_forms style="accordion"]
+ * [dl_forms]
+ * [dl_forms style="cta"]
+ * [dl_forms style="accordion"]
  */
-class Dump_Client_Forms_Shortcode {
+class Client_Forms_Shortcode {
 
 	/**
 	 * The shortcode tag handled by this class.
 	 *
 	 * @var string
 	 */
-	private $shortcode_tag = 'dl_dump_forms';
+	private $shortcode_tag = 'dl_forms';
 
 	/**
 	 * Default shortcode display style.
@@ -121,9 +121,9 @@ class Dump_Client_Forms_Shortcode {
 	 *
 	 * Usage:
 	 *
-	 * [dl_dump_forms]
-	 * [dl_dump_forms style="cta"]
-	 * [dl_dump_forms style="accordion"]
+	 * [dl_forms]
+	 * [dl_forms style="cta"]
+	 * [dl_forms style="accordion"]
 	 *
 	 * @param array|string $attributes Shortcode attributes.
 	 * @return string

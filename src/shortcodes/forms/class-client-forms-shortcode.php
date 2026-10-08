@@ -445,7 +445,7 @@ class Client_Forms_Shortcode {
 			return '';
 		}
 
-		$form_key = sanitize_key(
+		$form_key = sanitize_text_field(
 			$form_key
 		);
 

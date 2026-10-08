@@ -474,7 +474,7 @@ class Client_Form_Selector_Shortcode {
 			return '';
 		}
 
-		$form_key = sanitize_key(
+		$form_key = sanitize_text_field(
 			wp_unslash(
 				$_GET[ $this->form_query_parameter ]
 			)

@@ -1,0 +1,81 @@
+/* Hidden by default */
+.form_message_disclaimer.reactive {
+    display: none;
+}
+
+/* Visible when the configured trigger is active */
+.relative_form_section.is-visible .form_message_disclaimer.reactive {
+    display: flex;
+}
+
+.form_message_disclaimer {
+	color: var(--sss-primary-font-color-hex);
+    position: relative;
+    padding: 18px 20px 18px 58px;
+    margin: 20px 0;
+    background: #f0f7ff;
+    border: 1px solid #c9dff7;
+    border-left: 4px solid #2878c8;
+    border-radius: 8px;
+    color: var(--sss-primary-font-color-hex);
+	font-size: 14px;
+	font-style: italic;
+    line-height: 1.7;
+}
+
+/* Font Awesome SMS information icon */
+.form_message_disclaimer::before {
+    content: "\f05a"; /* fa-info-circle */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+
+    position: absolute;
+    top: 18px;
+    left: 16px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 35px;
+    height: 35px;
+
+    background: #dcecff;
+    color: #1766ae;
+    border-radius: 50%;
+    font-size: 22px;
+	font-style: normal;
+	line-height: 0;
+}
+
+/* Remove default paragraph spacing */
+.form_message_disclaimer p {
+    margin: 0;
+    padding: 0;
+}
+
+/* Highlight important links */
+.form_message_disclaimer a {
+    color: #1766ae;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.form_message_disclaimer a:hover {
+    color: #0d477d;
+    text-decoration-thickness: 2px;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 576px) {
+    .form_message_disclaimer {
+        padding: 48px 15px 15px;
+        font-size: 12px;
+    }
+
+    .form_message_disclaimer::before {
+        top: 12px;
+        left: 15px;
+    }
+}

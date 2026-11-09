@@ -81,6 +81,7 @@ class Initializer {
 		$this->initialize_modules();
 		$this->initialize_shortcodes();
 		$this->initialize_pages();
+		$this->initialize_cli_commands();
 	}
 
 	/**
@@ -106,6 +107,15 @@ class Initializer {
 	 */
 	private function initialize_modules() {
 		Client_Switcher::register();
+	}
+
+    /**
+     * Initialize WP-CLI commands.
+     *
+     * @return void
+     */
+    private function initialize_cli_commands() {
+		// WP-CLI commands are registered here.
 	}
 
 	/**
